@@ -117,9 +117,9 @@ export async function generateVoiceForSlidesWithGemini(
   try {
     const ai = new GoogleGenAI({ apiKey })
     
-    const config = {
+    const config: any = {
       temperature: 1,
-      responseModalities: ['audio'] as const,
+      responseModalities: ['audio'],
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: {

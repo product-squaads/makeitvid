@@ -94,6 +94,61 @@ export async function generateVoiceForSlides(
   }
 }
 
+export async function generateVoice(
+  text: string,
+  apiKey: string,
+  voiceId: string = DEFAULT_VOICES['en-US']
+): Promise<Buffer> {
+  try {
+    const response = await axios.post(
+      'https://api.cartesia.ai/tts/bytes',
+      {
+        model_id: 'sonic-english',
+        transcript: text,
+        voice: {
+          mode: 'id',
+          id: voiceId,
+        },
+        output_format: {
+          container: 'mp3',
+          encoding: 'mp3',
+          sample_rate: 44100,
+        },
+        language: 'en',
+      },
+      {
+        headers: {
+          'X-API-Key': apiKey,
+          'Cartesia-Version': '2024-06-10',
+          'Content-Type': 'application/json',
+        },
+        responseType: 'arraybuffer',
+      }
+    )
+
+    return Buffer.from(response.data)
+  } catch (error) {
+    console.error('Error generating voice:', error)
+    
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        throw new Error('Invalid Cartesia API key')
+      }
+      if (error.response?.status === 429) {
+        throw new Error('Cartesia rate limit exceeded')
+      }
+      if (error.response?.data) {
+        const errorMessage = typeof error.response.data === 'string' 
+          ? error.response.data 
+          : 'Cartesia API error'
+        throw new Error(errorMessage)
+      }
+    }
+
+    throw new Error('Failed to generate voice audio')
+  }
+}
+
 export async function getAvailableVoices(apiKey: string) {
   try {
     const response = await axios.get(

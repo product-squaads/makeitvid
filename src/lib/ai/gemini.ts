@@ -15,7 +15,8 @@ export interface GenerateScriptResponse {
 export async function generateVideoScript(
   document: string,
   apiKey: string,
-  steeringPrompt?: string
+  steeringPrompt?: string,
+  sections: number = 10
 ): Promise<ScriptSlide[]> {
   const ai = new GoogleGenAI({
     apiKey: apiKey,
@@ -46,19 +47,19 @@ export async function generateVideoScript(
   }
 
   const prompt = `
-    Convert this document into a video script with slides for an engaging educational video.
+    Convert this document into a video script with EXACTLY ${sections} sections/slides for an engaging educational video.
     ${steeringPrompt ? `Additional instructions: ${steeringPrompt}` : ''}
     
     Requirements:
-    - Generate 5-10 slides that cover the main points
+    - Generate EXACTLY ${sections} slides that comprehensively cover the content
     - Each slide needs: 
       - A clear, concise title
       - Content as bullet points (use "•" character, max 50 words total)
-      - Natural, conversational narration that explains the content
-      - Duration in seconds (10-20 seconds per slide)
-    - Target total duration: 2-3 minutes
+      - Natural, conversational narration that explains the content (50-100 words)
+      - Duration in seconds (15-30 seconds per slide)
     - Make the narration flow naturally between slides
     - Start with an introduction slide and end with a conclusion
+    - Distribute the content evenly across all ${sections} sections
     
     Document to convert:
     ${document}
@@ -77,7 +78,7 @@ export async function generateVideoScript(
 
   try {
     const response = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash-lite',
+      model: 'gemini-2.0-flash-exp',
       config,
       contents,
     })
