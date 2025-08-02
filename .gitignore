@@ -36,3 +36,11 @@ next-env.d.ts
 .claude
 CLAUDE.local.md
 local_stuff
+
+docs/old/
+
+# test outputs
+test-narration.mp3
+test-*.mp3
+test-*.mp4
+/temp/

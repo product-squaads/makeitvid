@@ -2,64 +2,111 @@
 
 ## External API Documentation
 
-### 1. Google Gemini API
+### 1. Google Gemini API (Updated 2025)
 
 #### Documentation
-- Official Docs: https://ai.google.dev/docs
-- API Key: https://makersuite.google.com/app/apikey
+- Official Docs: https://ai.google.dev/gemini-api/docs
+- API Key: https://aistudio.google.com/app/apikey
 - Pricing: https://ai.google.dev/pricing
 
 #### Quick Setup
 ```bash
-npm install @google/generative-ai
+npm install @google/genai
 ```
 
-#### Basic Usage
+#### Basic Usage (New API)
 ```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI, Type } from '@google/genai'
 
-const genAI = new GoogleGenerativeAI(API_KEY)
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+const ai = new GoogleGenAI({
+  apiKey: process.env.GOOGLE_GEMINI_API_KEY,
+})
 
-const result = await model.generateContent(prompt)
-const response = await result.response
-const text = response.text()
+// With JSON response schema
+const config = {
+  responseMimeType: 'application/json',
+  responseSchema: {
+    type: Type.OBJECT,
+    required: ["slides"],
+    properties: {
+      slides: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          required: ["id", "title", "content", "narration", "duration"],
+          properties: {
+            id: { type: Type.NUMBER },
+            title: { type: Type.STRING },
+            content: { type: Type.STRING },
+            narration: { type: Type.STRING },
+            duration: { type: Type.NUMBER },
+          },
+        },
+      },
+    },
+  },
+}
+
+const response = await ai.models.generateContentStream({
+  model: 'gemini-2.5-flash-lite', // or 'gemini-2.5-flash' or 'gemini-2.5-pro'
+  config,
+  contents: [{ role: 'user', parts: [{ text: prompt }] }],
+})
+
+for await (const chunk of response) {
+  console.log(chunk.text)
+}
 ```
 
-#### Model Options
-- `gemini-1.5-flash`: Fast, cost-effective (recommended for MVP)
-- `gemini-1.5-pro`: More capable, higher cost
-- `gemini-1.0-pro`: Legacy model
+#### Model Options (2025 - Verified Working)
+- `gemini-2.5-flash-lite`: Fastest & lowest cost ($0.10/1M input, $0.40/1M output) ✅ TESTED
+- `gemini-2.5-flash`: Balanced performance and cost
+- `gemini-2.5-pro`: Highest capability model with advanced reasoning
+- `gemini-2.0-flash-001`: Fallback option if 2.5 models unavailable
+- Note: Gemini 1.5 models are being phased out for new projects after April 2025
 
-#### Rate Limits
-- Free tier: 60 requests per minute
-- Paid tier: 360 requests per minute
+#### Key Features
+- **Streaming responses**: Better UX with `generateContentStream`
+- **JSON mode**: Structured output with response schemas
+- **1M token context**: Handle large documents
+- **Multimodal**: Support for text, images, and audio
 
-### 2. Cartesia API
+### 2. Cartesia API (Updated 2025)
 
 #### Documentation
 - Official Site: https://cartesia.ai
-- API Docs: https://docs.cartesia.ai
-- Pricing: $0.05 per 1000 characters
+- API Docs: https://docs.cartesia.ai/get-started/overview
+- API Keys: https://play.cartesia.ai/keys
+- Pricing: Pay-as-you-go model
 
 #### Quick Setup
 ```bash
 npm install axios
+# or use their official SDK when available
 ```
 
 #### Basic Usage
 ```typescript
 const response = await axios.post(
-  'https://api.cartesia.ai/v1/audio/speech',
+  'https://api.cartesia.ai/tts/bytes',
   {
-    text: 'Your text here',
-    voice: 'en-US-1',
-    output_format: 'mp3',
-    speed: 1.0,
+    model_id: 'sonic-english', // or 'sonic-turbo' for 40ms latency
+    transcript: 'Your text here',
+    voice: {
+      mode: 'id',
+      id: 'a0e99841-438c-4a64-b679-ae501e7d6091' // Default voice ID
+    },
+    output_format: {
+      container: 'mp3',
+      encoding: 'mp3',
+      sample_rate: 44100,
+    },
+    language: 'en', // Supports 15 languages
   },
   {
     headers: {
-      'Authorization': `Bearer ${API_KEY}`,
+      'X-API-Key': API_KEY,
+      'Cartesia-Version': '2024-06-10',
       'Content-Type': 'application/json',
     },
     responseType: 'arraybuffer',
@@ -67,15 +114,45 @@ const response = await axios.post(
 )
 ```
 
-#### Voice Options
-- `en-US-1`: Default American English
-- `en-UK-1`: British English
-- Multiple other voices available
+#### Models
+- **Sonic 2**: Ultra-realistic TTS, 90ms first-byte latency
+- **Sonic Turbo**: Fastest TTS, 40ms first-byte latency
+- **Ink-Whisper**: Speech-to-text optimized for conversations
 
-#### Audio Formats
-- `mp3`: Recommended for web
-- `wav`: Higher quality, larger files
-- `pcm`: Raw audio data
+#### Key Features
+- **Voice Cloning**: Pro and instant voice cloning
+- **Multi-language**: 15 languages with accent localization
+- **Real-time Streaming**: WebSocket support for live applications
+- **Edge Deployment**: On-device voice AI capabilities
+
+#### Voice Management
+```typescript
+// Get available voices
+const voices = await axios.get(
+  'https://api.cartesia.ai/voices',
+  {
+    headers: {
+      'X-API-Key': API_KEY,
+      'Cartesia-Version': '2024-06-10',
+    }
+  }
+)
+
+// Clone a voice (Pro feature)
+const clonedVoice = await axios.post(
+  'https://api.cartesia.ai/voices/clone',
+  {
+    name: 'My Custom Voice',
+    description: 'Cloned voice for videos',
+    audio_url: 'https://example.com/voice-sample.mp3',
+  },
+  {
+    headers: {
+      'X-API-Key': API_KEY,
+      'Cartesia-Version': '2024-06-10',
+    }
+  }
+)
 
 ### 3. Clerk Authentication
 
@@ -295,20 +372,56 @@ export function checkRateLimit(userId: string): boolean {
 
 ## Testing API Keys
 
-### Gemini Test
+### Integration Test Suite (Recommended)
 ```bash
-curl https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_API_KEY \
-  -H 'Content-Type: application/json' \
-  -d '{"contents":[{"parts":[{"text":"Hello"}]}]}'
+# Run our comprehensive integration tests
+npx tsx src/tests/api-integration.test.ts
+
+# This tests both Gemini and Cartesia with real API calls
 ```
 
-### Cartesia Test
+### Manual Gemini Test
 ```bash
-curl -X POST https://api.cartesia.ai/v1/audio/speech \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Hello world","voice":"en-US-1","output_format":"mp3"}'
+# Using the new @google/genai package
+npx tsx -e "
+import { GoogleGenAI } from '@google/genai';
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
+const response = await ai.models.generateContent({
+  model: 'gemini-2.5-flash-lite',
+  contents: 'Say hello'
+});
+console.log(response.text);
+"
 ```
+
+### Manual Cartesia Test
+```bash
+curl -X POST https://api.cartesia.ai/tts/bytes \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -H "Cartesia-Version: 2024-06-10" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "sonic-english",
+    "transcript": "Hello world",
+    "voice": {"mode": "id", "id": "a0e99841-438c-4a64-b679-ae501e7d6091"},
+    "output_format": {"container": "mp3", "encoding": "mp3", "sample_rate": 44100},
+    "language": "en"
+  }' --output test.mp3
+```
+
+## Important Notes from Testing
+
+1. **Cartesia API Changes**:
+   - Uses `X-API-Key` header, not `Authorization`
+   - Endpoint is `/tts/bytes` not `/v1/audio/speech`
+   - No `speed` parameter support (causes 422 error)
+   - Requires `Cartesia-Version` header
+
+2. **Gemini API Updates**:
+   - Use `@google/genai` package (not `@google/generative-ai`)
+   - Use `generateContentStream` for better performance
+   - Type imports required for schema definitions
+   - Models: Use `gemini-2.5-flash-lite` for best cost/performance
 
 ---
 

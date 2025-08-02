@@ -51,16 +51,16 @@ export const config = {
 }
 ```
 
-### 2. Google Gemini Integration
+### 2. Google Gemini Integration (Updated 2025 - Tested & Working)
 
 #### Installation
 ```bash
-npm install @google/generative-ai
+pnpm add @google/genai  # Note: Use pnpm, not npm
 ```
 
 #### lib/ai/gemini.ts
 ```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI, Type } from '@google/genai'
 
 export interface ScriptSlide {
   id: number
@@ -75,8 +75,33 @@ export async function generateVideoScript(
   apiKey: string,
   steeringPrompt?: string
 ): Promise<ScriptSlide[]> {
-  const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const ai = new GoogleGenAI({
+    apiKey: apiKey,
+  })
+
+  const config = {
+    responseMimeType: 'application/json',
+    responseSchema: {
+      type: Type.OBJECT,
+      required: ["slides"],
+      properties: {
+        slides: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            required: ["id", "title", "content", "narration", "duration"],
+            properties: {
+              id: { type: Type.NUMBER },
+              title: { type: Type.STRING },
+              content: { type: Type.STRING },
+              narration: { type: Type.STRING },
+              duration: { type: Type.NUMBER },
+            },
+          },
+        },
+      },
+    },
+  }
 
   const prompt = `
     Convert this document into a video script with slides.
@@ -88,29 +113,33 @@ export async function generateVideoScript(
     - Target duration: 2-3 minutes total
     - Keep slide content concise (max 50 words)
     - Make narration natural and conversational
-    
-    Return as JSON array with this structure:
-    [{
-      "id": 1,
-      "title": "Introduction",
-      "content": "• Key point 1\\n• Key point 2",
-      "narration": "Welcome to our video about...",
-      "duration": 15
-    }]
+    - Content should use bullet points with "•" character
     
     Document to convert:
     ${document}
   `
 
-  const result = await model.generateContent(prompt)
-  const response = await result.response
-  const text = response.text()
+  const contents = [
+    {
+      role: 'user' as const,
+      parts: [{ text: prompt }],
+    },
+  ]
+
+  const response = await ai.models.generateContentStream({
+    model: 'gemini-2.5-flash-lite', // Best for MVP: fast & cheap
+    config,
+    contents,
+  })
+
+  let fullText = ''
+  for await (const chunk of response) {
+    fullText += chunk.text
+  }
   
-  // Extract JSON from response
-  const jsonMatch = text.match(/\[[\s\S]*\]/)
-  if (!jsonMatch) throw new Error('Failed to parse script')
+  const data = JSON.parse(fullText)
   
-  return JSON.parse(jsonMatch[0])
+  return data.slides
 }
 ```
 
@@ -134,7 +163,12 @@ export async function POST(request: Request) {
 }
 ```
 
-### 3. Cartesia Voice Integration
+### 3. Cartesia Voice Integration (Tested & Working)
+
+#### Installation
+```bash
+pnpm add axios
+```
 
 #### lib/ai/cartesia.ts
 ```typescript
@@ -145,16 +179,26 @@ export async function generateVoice(
   apiKey: string
 ): Promise<Buffer> {
   const response = await axios.post(
-    'https://api.cartesia.ai/v1/audio/speech',
+    'https://api.cartesia.ai/tts/bytes',  // Correct endpoint
     {
-      text,
-      voice: 'en-US-1', // Default voice
-      output_format: 'mp3',
-      speed: 1.0,
+      model_id: 'sonic-english',
+      transcript: text,
+      voice: {
+        mode: 'id',
+        id: 'a0e99841-438c-4a64-b679-ae501e7d6091', // Default US voice
+      },
+      output_format: {
+        container: 'mp3',
+        encoding: 'mp3',
+        sample_rate: 44100,
+      },
+      language: 'en',
+      // Note: NO speed parameter - causes 422 error
     },
     {
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'X-API-Key': apiKey,  // Note: X-API-Key, not Authorization
+        'Cartesia-Version': '2024-06-10',
         'Content-Type': 'application/json',
       },
       responseType: 'arraybuffer',
@@ -468,6 +512,44 @@ export function VideoGenerator() {
 - FFmpeg must be available in the deployment environment
 - For Vercel: Use a custom runtime or external processing service
 - Alternative: Use @ffmpeg/ffmpeg for browser-based processing
+
+## Integration Testing
+
+### Why Integration Tests Matter
+Real API calls catch breaking changes that mocks would miss. Always test with actual API keys before deployment.
+
+### Test Setup
+```bash
+pnpm add -D tsx dotenv @types/node
+```
+
+### Example Integration Test
+```typescript
+// src/tests/api-integration.test.ts
+import { generateVideoScript } from '../lib/ai/gemini'
+import { generateVoiceForSlides } from '../lib/ai/cartesia'
+import * as dotenv from 'dotenv'
+
+dotenv.config()
+
+async function testAPIs() {
+  // Test Gemini
+  const slides = await generateVideoScript(
+    'Test document content',
+    process.env.GOOGLE_GEMINI_API_KEY!
+  )
+  console.log(`Generated ${slides.length} slides`)
+  
+  // Test Cartesia
+  const voice = await generateVoiceForSlides(
+    slides,
+    process.env.CARTESIA_API_KEY!
+  )
+  console.log(`Generated ${voice.audioBuffer.length} bytes of audio`)
+}
+
+// Run: npx tsx src/tests/api-integration.test.ts
+```
 
 ## Security Considerations
 

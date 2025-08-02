@@ -58,11 +58,11 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 
 ## Current Project Status
 
-### Overall Progress: 2/10 hours used
-- **Current Phase**: Authentication Complete
-- **Next Phase**: AI Integration (Gemini + Cartesia)
+### Overall Progress: 4/10 hours used
+- **Current Phase**: AI Integration Complete with Tests
+- **Next Phase**: HTML Slide Generator & Video Assembly
 - **Blockers**: None
-- **Target Completion**: 8 hours remaining
+- **Target Completion**: 6 hours remaining
 
 ### Completed Tasks ✅
 
@@ -121,12 +121,64 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 - [x] Build sign-in/sign-up pages
 - [x] Add user metadata storage for API keys (ready for implementation)
 
-### Phase 2: AI Integration (Hours 3-4)
-- [ ] Create `/api/generate/script` endpoint
-- [ ] Integrate Google Gemini API
-- [ ] Define JSON schema for script structure
-- [ ] Implement prompt engineering for video scripts
-- [ ] Add error handling and rate limiting
+#### Task: Google Gemini Integration
+- **Status**: Completed
+- **Time Spent**: 0.75 hours
+- **Key Learnings**:
+  - New Google GenAI SDK uses structured response schemas with Type definitions
+  - Gemini 2.5 models are the latest (flash-lite is cheapest)
+  - JSON mode ensures consistent output format
+  - Edge runtime works well for script generation
+  - Response validation is crucial for reliability
+- **Code Changes**:
+  - Created `src/lib/ai/gemini.ts` with type-safe script generation
+  - Created `/api/generate/script` route with auth & validation
+  - Added test page at `/test-gemini` for quick testing
+  - Implemented proper error handling and rate limit responses
+- **Challenges**:
+  - API documentation was outdated - had to research new SDK patterns
+
+#### Task: Cartesia TTS Integration
+- **Status**: Completed
+- **Time Spent**: 0.75 hours
+- **Key Learnings**:
+  - Cartesia uses 'X-API-Key' header instead of Authorization
+  - Sonic model provides best quality for video narration
+  - Audio duration estimation based on word count works well
+  - Base64 encoding needed for JSON response of audio data
+  - Node runtime required for Buffer handling
+- **Code Changes**:
+  - Created `src/lib/ai/cartesia.ts` with voice generation
+  - Created `/api/generate/voice` route for TTS
+  - Added support for voice selection and speed control
+  - Implemented proper error handling for API limits
+
+#### Task: Integration Testing & API Fixes
+- **Status**: Completed
+- **Time Spent**: 0.5 hours
+- **Key Learnings**:
+  - @google/genai requires Type imports for schema definition
+  - Gemini 2.5 models use generateContentStream with structured responses
+  - Cartesia doesn't support speed parameter in current API
+  - Integration tests are crucial for catching API changes
+  - Audio generation creates real MP3 files that play correctly
+- **Code Changes**:
+  - Created `src/tests/api-integration.test.ts` for real API testing
+  - Fixed Gemini to use proper Type imports and streaming
+  - Fixed Cartesia by removing unsupported speed parameter
+  - Added test audio player HTML for verification
+- **Challenges**:
+  - Initial Gemini implementation used wrong response structure
+  - Cartesia API returned 422 error for speed parameter
+
+### Phase 2: AI Integration (Hours 3-4) ✅
+- [x] Create `/api/generate/script` endpoint
+- [x] Integrate Google Gemini API
+- [x] Create `/api/generate/voice` endpoint
+- [x] Integrate Cartesia TTS API
+- [x] Define JSON schema for script structure (using Type definitions)
+- [x] Implement prompt engineering for video scripts
+- [x] Add error handling and rate limiting (basic implementation)
 
 ### Phase 3: Voice Generation (Hours 5-6)
 - [ ] Create `/api/generate/voice` endpoint

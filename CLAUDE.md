@@ -64,6 +64,12 @@
 
 ### 4. Code Standards
 
+#### Integration Testing (IMPORTANT):
+- **Always create integration tests for external APIs** (e.g., `src/tests/api-integration.test.ts`)
+- **Test with real API calls** to catch breaking changes early
+- **Include sample outputs** (audio files, JSON responses) for verification
+- **Run tests before marking tasks complete**: `npx tsx src/tests/*.test.ts`
+
 #### File Organization:
 ```
 src/
