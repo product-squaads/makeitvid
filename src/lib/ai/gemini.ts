@@ -16,7 +16,7 @@ export async function generateVideoScript(
   document: string,
   apiKey: string,
   steeringPrompt?: string,
-  sections: number = 10
+  sections: number = 3
 ): Promise<ScriptSlide[]> {
   const ai = new GoogleGenAI({
     apiKey: apiKey,
@@ -101,7 +101,7 @@ export async function generateVideoScript(
       title: slide.title || `Slide ${index + 1}`,
       content: slide.content || '',
       narration: slide.narration || '',
-      duration: Math.max(10, Math.min(30, slide.duration || 15)), // Clamp between 10-30 seconds
+      duration: Math.max(15, Math.min(30, slide.duration || 20)), // Clamp between 15-30 seconds
     }))
 
     return validatedSlides

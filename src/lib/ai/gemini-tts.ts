@@ -202,6 +202,87 @@ export async function generateVoiceForSlidesWithGemini(
   }
 }
 
+export async function generateVoiceWithGemini(
+  text: string,
+  apiKey: string,
+  voiceName: string = DEFAULT_VOICE
+): Promise<Buffer> {
+  try {
+    const ai = new GoogleGenAI({ apiKey })
+    
+    const config: any = {
+      temperature: 1,
+      responseModalities: ['audio'],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: voiceName,
+          }
+        }
+      },
+    }
+
+    const model = 'gemini-2.5-flash-preview-tts'
+    const contents = [
+      {
+        role: 'user' as const,
+        parts: [
+          {
+            text: text,
+          },
+        ],
+      },
+    ]
+
+    const response = await ai.models.generateContentStream({
+      model,
+      config,
+      contents,
+    })
+
+    let audioBuffer: Buffer | null = null
+    let mimeType: string | null = null
+
+    for await (const chunk of response) {
+      if (!chunk.candidates || !chunk.candidates[0].content || !chunk.candidates[0].content.parts) {
+        continue
+      }
+      
+      if (chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+        const inlineData = chunk.candidates[0].content.parts[0].inlineData
+        mimeType = inlineData.mimeType || 'audio/wav'
+        
+        // Convert to WAV if needed
+        if (mimeType && mimeType.includes('audio/L')) {
+          audioBuffer = convertToWav(inlineData.data || '', mimeType)
+        } else {
+          audioBuffer = Buffer.from(inlineData.data || '', 'base64')
+        }
+        break
+      }
+    }
+
+    if (!audioBuffer) {
+      throw new Error('No audio data received from Gemini')
+    }
+
+    return audioBuffer
+  } catch (error) {
+    console.error('Error generating voice with Gemini:', error)
+    
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        throw new Error('Invalid Gemini API key')
+      }
+      if (error.message.includes('quota')) {
+        throw new Error('Gemini API quota exceeded')
+      }
+    }
+
+    throw new Error('Failed to generate voice audio with Gemini')
+  }
+}
+
 export function getAvailableGeminiVoices() {
   return Object.entries(GEMINI_VOICES).map(([name, style]) => ({
     id: name,

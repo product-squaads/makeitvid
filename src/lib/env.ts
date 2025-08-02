@@ -25,14 +25,12 @@ export function getDevApiKeys() {
   // Only allow in development mode
   if (!isDevelopment()) {
     return {
-      gemini: null,
-      cartesia: null
+      gemini: null
     }
   }
 
   return {
-    gemini: process.env.GOOGLE_GEMINI_API_KEY || null,
-    cartesia: process.env.CARTESIA_API_KEY || null
+    gemini: process.env.GOOGLE_GEMINI_API_KEY || null
   }
 }
 
@@ -43,5 +41,5 @@ export function hasDevApiKeys(): boolean {
   if (!isDevelopment()) return false
   
   const keys = getDevApiKeys()
-  return !!(keys.gemini || keys.cartesia)
+  return !!keys.gemini
 }

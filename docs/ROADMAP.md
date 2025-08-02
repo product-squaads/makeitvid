@@ -10,7 +10,7 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 - **Backend**: Next.js API Routes (no separate backend service)
 - **Authentication**: Clerk (fastest setup, includes user management)
 - **LLM Provider**: Google Gemini API (cost-effective, good performance)
-- **TTS Provider**: Dual option - Cartesia API (better quality) OR Gemini TTS (simpler integration)
+- **TTS Provider**: Google Gemini TTS (integrated, no rate limits for parallel generation)
 - **Video Generation**: HTML/CSS slides → Puppeteer screenshots → FFmpeg
 - **Deployment**: Vercel (optimal for Next.js)
 
@@ -62,11 +62,11 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 
 ## Current Project Status
 
-### Overall Progress: 6.5/10 hours used
-- **Current Phase**: Dashboard & Core User Flow Implemented
+### Overall Progress: 7.5/10 hours used
+- **Current Phase**: Rate-Limited TTS with Sequential Generation
 - **Next Phase**: HTML Slide Generator & Video Assembly (Phase 4)
-- **Blockers**: None
-- **Target Completion**: 3.5 hours remaining
+- **Blockers**: Gemini API rate limits (solved with sequential generation)
+- **Target Completion**: 2.5 hours remaining
 
 ### Completed Tasks ✅
 
@@ -239,6 +239,30 @@ makeitvid is an AI-powered video generation platform that transforms documents i
   - Made the system modular for future database integration
 - **Challenges**:
   - None - smooth implementation with clear separation of concerns
+
+#### Task: Rate Limit Handling & UX Improvements ✅
+- **Status**: Completed
+- **Time Spent**: 0.5 hours
+- **Key Learnings**:
+  - Gemini TTS has rate limits for parallel requests
+  - Sequential generation with delays prevents 429 errors
+  - Visual feedback per section improves user experience
+  - Starting with fewer sections ensures reliability
+- **Code Changes**:
+  - Changed from 10 to 3 sections by default
+  - Implemented sequential audio generation with 5s delays
+  - Added per-section loading states (pending/generating/completed/error)
+  - Added 60s retry delay on rate limit errors
+  - Visual indicators for each section's status
+- **Implementation Details**:
+  - Each section shows its generation status
+  - Blue highlight and spinner during generation
+  - Green checkmark when completed
+  - Error state with retry logic
+  - Progress updates show current section being processed
+- **Challenges**:
+  - 429 quota errors with parallel generation
+  - Solved by sequential processing with delays
 
 ### Phase 2: AI Integration (Hours 3-4) ✅
 - [x] Create `/api/generate/script` endpoint

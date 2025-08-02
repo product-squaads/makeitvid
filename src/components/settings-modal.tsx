@@ -22,9 +22,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [geminiKey, setGeminiKey] = useState('')
-  const [cartesiaKey, setCartesiaKey] = useState('')
   const [showGemini, setShowGemini] = useState(false)
-  const [showCartesia, setShowCartesia] = useState(false)
   const [saved, setSaved] = useState(false)
   const [useDevKeys, setUseDevKeys] = useState(false)
   const [hasDevKeys, setHasDevKeys] = useState(false)
@@ -33,11 +31,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   useEffect(() => {
     // Load existing keys from localStorage
     const storedGemini = localStorage.getItem('gemini_api_key') || ''
-    const storedCartesia = localStorage.getItem('cartesia_api_key') || ''
     const storedUseDevKeys = localStorage.getItem('use_dev_keys') === 'true'
     
     setGeminiKey(storedGemini)
-    setCartesiaKey(storedCartesia)
     setUseDevKeys(storedUseDevKeys && isLocal)
     
     // Check if dev keys are available
@@ -56,11 +52,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       // In dev mode, just save the preference
       localStorage.setItem('use_dev_keys', 'true')
       localStorage.removeItem('gemini_api_key')
-      localStorage.removeItem('cartesia_api_key')
     } else {
       // In production or when not using dev keys
       localStorage.setItem('gemini_api_key', geminiKey)
-      localStorage.setItem('cartesia_api_key', cartesiaKey)
       localStorage.setItem('use_dev_keys', 'false')
     }
     setSaved(true)
@@ -76,7 +70,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         <DialogHeader>
           <DialogTitle>API Settings</DialogTitle>
           <DialogDescription>
-            Configure your API keys for video generation. Your keys are stored locally and never sent to our servers.
+            Configure your Google Gemini API key for video generation. Your key is stored locally and never sent to our servers.
           </DialogDescription>
         </DialogHeader>
         
@@ -141,41 +135,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </a>
             </p>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cartesia">Cartesia API Key</Label>
-            <div className="relative">
-              <Input
-                id="cartesia"
-                type={showCartesia ? 'text' : 'password'}
-                value={cartesiaKey}
-                onChange={(e) => setCartesiaKey(e.target.value)}
-                placeholder="sk-..."
-                disabled={useDevKeys}
-              />
-              <button
-                type="button"
-                onClick={() => setShowCartesia(!showCartesia)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-              >
-                {showCartesia ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-gray-500">
-              Get your key from{' '}
-              <a 
-                href="https://www.cartesia.ai/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-purple-600 hover:underline"
-              >
-                Cartesia
-              </a>
-            </p>
-          </div>
         </div>
         <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={!useDevKeys && (!geminiKey || !cartesiaKey)}>
+          <Button onClick={handleSave} disabled={!useDevKeys && !geminiKey}>
             {saved ? (
               <>Saved!</>
             ) : (

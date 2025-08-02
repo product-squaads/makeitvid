@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [audioUrls, setAudioUrls] = useState<string[]>([])
   const [error, setError] = useState('')
   const [showSettings, setShowSettings] = useState(false)
+  const [audioGenerationStatus, setAudioGenerationStatus] = useState<Record<number, 'pending' | 'generating' | 'completed' | 'error'>>({})
 
   if (!isLoaded) {
     return <div className="min-h-screen flex items-center justify-center">
@@ -41,10 +42,9 @@ export default function DashboardPage() {
     // Check if API keys are set or using dev keys
     const useDevKeys = localStorage.getItem('use_dev_keys') === 'true'
     const geminiKey = localStorage.getItem('gemini_api_key')
-    const cartesiaKey = localStorage.getItem('cartesia_api_key')
     
-    if (!useDevKeys && (!geminiKey || !cartesiaKey)) {
-      setError('Please configure your API keys in settings first')
+    if (!useDevKeys && !geminiKey) {
+      setError('Please configure your Gemini API key in settings first')
       setShowSettings(true)
       return
     }
@@ -56,7 +56,7 @@ export default function DashboardPage() {
     setAudioUrls([])
 
     try {
-      // Step 1: Generate script with 10 sections
+      // Step 1: Generate script with 3 sections initially
       setCurrentStep('Generating script sections...')
       setProgress(10)
       
@@ -68,7 +68,7 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({
           document: content,
-          sections: 10,
+          sections: 3, // Start with 3 sections
           apiKey: useDevKeys ? '' : (localStorage.getItem('gemini_api_key') || '')
         }),
       })
@@ -79,35 +79,79 @@ export default function DashboardPage() {
       }
 
       const scriptData = await scriptResponse.json()
-      setScriptSections(scriptData.slides || [])
+      const sections = scriptData.slides || []
+      setScriptSections(sections)
+      
+      // Initialize audio generation status
+      const initialStatus: Record<number, 'pending' | 'generating' | 'completed' | 'error'> = {}
+      sections.forEach((_: any, index: number) => {
+        initialStatus[index] = 'pending'
+      })
+      setAudioGenerationStatus(initialStatus)
       setProgress(30)
 
-      // Step 2: Generate audio for each section in parallel
+      // Step 2: Generate audio for each section sequentially with delays
       setCurrentStep('Generating audio narrations...')
       
-      const audioPromises = scriptData.slides.map(async (slide: any, index: number) => {
-        const response = await fetch('/api/generate/voice', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            ...(useDevKeys && { 'x-use-dev-keys': 'true' })
-          },
-          body: JSON.stringify({
-            text: slide.narration,
-            apiKey: useDevKeys ? '' : (localStorage.getItem('cartesia_api_key') || '')
-          }),
-        })
+      const audioUrlsArray: string[] = new Array(sections.length)
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+      
+      for (let i = 0; i < sections.length; i++) {
+        const slide = sections[i]
+        
+        // Update status to generating
+        setAudioGenerationStatus(prev => ({ ...prev, [i]: 'generating' }))
+        setCurrentStep(`Generating audio for section ${i + 1} of ${sections.length}...`)
+        
+        try {
+          const response = await fetch('/api/generate/voice-gemini', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(useDevKeys && { 'x-use-dev-keys': 'true' })
+            },
+            body: JSON.stringify({
+              text: slide.narration,
+              apiKey: useDevKeys ? '' : (localStorage.getItem('gemini_api_key') || ''),
+              voiceName: 'Kore'
+            }),
+          })
 
-        if (!response.ok) {
-          throw new Error(`Failed to generate audio for section ${index + 1}`)
+          if (!response.ok) {
+            const errorData = await response.json()
+            if (response.status === 429) {
+              // Rate limit error - wait longer
+              setCurrentStep(`Rate limit reached. Waiting 60 seconds before continuing...`)
+              setAudioGenerationStatus(prev => ({ ...prev, [i]: 'error' }))
+              await delay(60000) // Wait 1 minute
+              i-- // Retry this section
+              continue
+            }
+            throw new Error(errorData.error || `Failed to generate audio for section ${i + 1}`)
+          }
+
+          const blob = await response.blob()
+          audioUrlsArray[i] = URL.createObjectURL(blob)
+          
+          // Update status to completed
+          setAudioGenerationStatus(prev => ({ ...prev, [i]: 'completed' }))
+          setAudioUrls([...audioUrlsArray])
+          
+          // Update progress
+          const progressPercent = 30 + ((i + 1) / sections.length) * 50
+          setProgress(Math.min(progressPercent, 80))
+          
+          // Add delay between requests (except for the last one)
+          if (i < sections.length - 1) {
+            setCurrentStep(`Waiting before next audio generation...`)
+            await delay(5000) // 5 second delay between requests
+          }
+        } catch (err) {
+          setAudioGenerationStatus(prev => ({ ...prev, [i]: 'error' }))
+          throw err
         }
-
-        const blob = await response.blob()
-        return URL.createObjectURL(blob)
-      })
-
-      const results = await Promise.all(audioPromises)
-      setAudioUrls(results)
+      }
+      
       setProgress(80)
 
       // Step 3: Save to localStorage
@@ -117,7 +161,7 @@ export default function DashboardPage() {
         title: scriptData.slides[0]?.title || 'Untitled Video',
         content,
         scriptSections: scriptData.slides,
-        audioUrls: results,
+        audioUrls: audioUrls,
         createdAt: new Date().toISOString(),
       }
 
@@ -152,7 +196,7 @@ export default function DashboardPage() {
               >
                 <Settings className="h-5 w-5" />
               </button>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton />
             </div>
           </div>
         </div>
@@ -174,6 +218,9 @@ export default function DashboardPage() {
                 className="min-h-[400px] resize-none"
                 disabled={isGenerating}
               />
+              <p className="text-xs text-gray-500 mt-2">
+                💡 Tip: Videos will be generated with 3 sections to ensure quality and avoid rate limits.
+              </p>
               <div className="mt-4">
                 <Button
                   onClick={generateVideo}
@@ -213,32 +260,51 @@ export default function DashboardPage() {
               <Card className="p-6">
                 <h3 className="font-medium mb-4">Generated Sections</h3>
                 <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                  {scriptSections.map((section, index) => (
-                    <div key={section.id} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-sm">
-                          Section {index + 1}: {section.title}
-                        </h4>
-                        {audioUrls[index] && (
-                          <button
-                            onClick={() => {
-                              const audio = new Audio(audioUrls[index])
-                              audio.play()
-                            }}
-                            className="text-purple-600 hover:text-purple-700"
-                          >
-                            <Volume2 className="h-4 w-4" />
-                          </button>
-                        )}
+                  {scriptSections.map((section, index) => {
+                    const status = audioGenerationStatus[index] || 'pending'
+                    return (
+                      <div key={section.id} className={`p-3 rounded-lg transition-all ${
+                        status === 'generating' ? 'bg-blue-50 border border-blue-200' :
+                        status === 'completed' ? 'bg-gray-50' :
+                        status === 'error' ? 'bg-red-50 border border-red-200' :
+                        'bg-gray-50 opacity-60'
+                      }`}>
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-medium text-sm flex items-center gap-2">
+                            Section {index + 1}: {section.title}
+                            {status === 'generating' && (
+                              <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                            )}
+                          </h4>
+                          {audioUrls[index] && status === 'completed' && (
+                            <button
+                              onClick={() => {
+                                const audio = new Audio(audioUrls[index])
+                                audio.play()
+                              }}
+                              className="text-purple-600 hover:text-purple-700"
+                            >
+                              <Volume2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {section.narration}
+                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-gray-500">
+                            Duration: {section.duration}s
+                          </p>
+                          <p className="text-xs">
+                            {status === 'pending' && <span className="text-gray-400">Waiting...</span>}
+                            {status === 'generating' && <span className="text-blue-600">Generating audio...</span>}
+                            {status === 'completed' && <span className="text-green-600">✓ Ready</span>}
+                            {status === 'error' && <span className="text-red-600">⚠ Error</span>}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {section.narration}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Duration: {section.duration}s
-                      </p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </Card>
             )}
