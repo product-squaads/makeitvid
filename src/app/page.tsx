@@ -2,8 +2,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, FileText, Video, Brain, Zap, Github, Star, Users, Download, Play } from "lucide-react"
+import { auth } from "@clerk/nextjs/server"
+import Link from "next/link"
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { userId } = await auth()
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -25,10 +28,26 @@ export default function HomePage() {
             <a href="#open-source" className="text-gray-600 hover:text-gray-900 transition-colors font-medium">
               Open Source
             </a>
-            <Button variant="outline" size="sm" className="rounded-lg border-gray-300 bg-transparent">
-              <Github className="w-4 h-4 mr-2" />
-              GitHub
-            </Button>
+            {userId ? (
+              <Link href="/dashboard">
+                <Button size="sm" className="rounded-lg bg-purple-600 hover:bg-purple-700">
+                  Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/sign-in">
+                  <Button variant="outline" size="sm" className="rounded-lg border-gray-300">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/sign-up">
+                  <Button size="sm" className="rounded-lg bg-purple-600 hover:bg-purple-700">
+                    Sign Up
+                  </Button>
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -51,18 +70,22 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            <Button size="lg" className="bg-gray-900 hover:bg-gray-800 rounded-lg px-8 py-3 text-lg font-medium">
-              Get Started Free
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="rounded-lg px-8 py-3 text-lg font-medium border-gray-300 bg-transparent"
-            >
-              <Github className="w-5 h-5 mr-2" />
-              View on GitHub
-            </Button>
+            <Link href={userId ? "/dashboard" : "/sign-up"}>
+              <Button size="lg" className="bg-gray-900 hover:bg-gray-800 rounded-lg px-8 py-3 text-lg font-medium">
+                {userId ? "Go to Dashboard" : "Get Started Free"}
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+            <a href="https://github.com/yourusername/makeitvid" target="_blank" rel="noopener noreferrer">
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-lg px-8 py-3 text-lg font-medium border-gray-300 bg-transparent"
+              >
+                <Github className="w-5 h-5 mr-2" />
+                View on GitHub
+              </Button>
+            </a>
           </div>
 
           {/* Demo Video Placeholder */}
@@ -269,13 +292,15 @@ export default function HomePage() {
               Join thousands of researchers, educators, and content creators who are already using makeitvid to make
               their information more accessible and engaging.
             </p>
-            <Button
-              size="lg"
-              className="bg-white text-purple-600 hover:bg-gray-100 rounded-lg px-8 py-3 text-lg font-semibold"
-            >
-              Get Started Today
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
+            <Link href={userId ? "/dashboard" : "/sign-up"}>
+              <Button
+                size="lg"
+                className="bg-white text-purple-600 hover:bg-gray-100 rounded-lg px-8 py-3 text-lg font-semibold"
+              >
+                {userId ? "Go to Dashboard" : "Get Started Today"}
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
