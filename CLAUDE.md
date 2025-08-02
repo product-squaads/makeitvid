@@ -50,6 +50,7 @@
    - Read current task from TodoWrite
    - Check ROADMAP.md for context
    - Review relevant documentation
+   - Remember to always check if in docs folder there is something useful for our current task
 
 2. **During Development**:
    - Implement minimal viable solution first

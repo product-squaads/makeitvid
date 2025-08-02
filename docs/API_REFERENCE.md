@@ -62,6 +62,7 @@ for await (const chunk of response) {
 - `gemini-2.5-flash-lite`: Fastest & lowest cost ($0.10/1M input, $0.40/1M output) ✅ TESTED
 - `gemini-2.5-flash`: Balanced performance and cost
 - `gemini-2.5-pro`: Highest capability model with advanced reasoning
+- `gemini-2.5-flash-preview-tts`: Special TTS model for audio generation ✅ TESTED
 - `gemini-2.0-flash-001`: Fallback option if 2.5 models unavailable
 - Note: Gemini 1.5 models are being phased out for new projects after April 2025
 
@@ -70,6 +71,7 @@ for await (const chunk of response) {
 - **JSON mode**: Structured output with response schemas
 - **1M token context**: Handle large documents
 - **Multimodal**: Support for text, images, and audio
+- **TTS Support**: Audio generation with 30 voice options (preview model)
 
 ### 2. Cartesia API (Updated 2025)
 
@@ -153,6 +155,60 @@ const clonedVoice = await axios.post(
     }
   }
 )
+```
+
+### 2.5. Google Gemini TTS (Alternative TTS Provider)
+
+#### Basic Usage
+```typescript
+import { GoogleGenAI } from '@google/genai'
+
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY })
+
+const config = {
+  temperature: 1,
+  responseModalities: ['audio'] as const,
+  speechConfig: {
+    voiceConfig: {
+      prebuiltVoiceConfig: {
+        voiceName: 'Kore' // or any of 30 available voices
+      }
+    }
+  },
+}
+
+const response = await ai.models.generateContentStream({
+  model: 'gemini-2.5-flash-preview-tts',
+  config,
+  contents: [{
+    role: 'user',
+    parts: [{ text: 'Your text to convert to speech' }]
+  }]
+})
+
+// Process WAV audio
+for await (const chunk of response) {
+  if (chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+    const inlineData = chunk.candidates[0].content.parts[0].inlineData
+    // Returns WAV format audio that needs header construction
+    const wavBuffer = convertToWav(inlineData.data, inlineData.mimeType)
+  }
+}
+```
+
+#### Available Voices (30 options)
+- **Composed**: Zephyr
+- **Upbeat**: Puck
+- **Firm**: Kore (default)
+- **Bright**: Fenrir
+- **Professional**: Orion
+- And 25 more with descriptive styles
+
+#### Key Differences vs Cartesia
+- **Format**: Returns WAV instead of MP3 (larger files)
+- **Speed**: ~18s generation vs ~10s for Cartesia
+- **Cost**: Free during preview (vs $0.00065/char for Cartesia)
+- **Integration**: Same API as script generation
 
 ### 3. Clerk Authentication
 
@@ -216,13 +272,16 @@ Authorization: Bearer <clerk_token>
 
 {
   "script": [...], // Array of script slides
-  "apiKey": "cartesia_api_key"
+  "ttsProvider": "cartesia" | "gemini", // Optional, defaults to "cartesia"
+  "apiKey": "tts_api_key",
+  "voiceId": "voice_id_or_name" // Optional
 }
 
 Response:
 {
-  "audioUrl": "/temp/audio-uuid.mp3",
-  "duration": 120 // seconds
+  "audioUrl": "/temp/audio-uuid.mp3", // or .wav for Gemini
+  "duration": 120, // seconds
+  "format": "mp3" | "wav"
 }
 ```
 
@@ -422,6 +481,8 @@ curl -X POST https://api.cartesia.ai/tts/bytes \
    - Use `generateContentStream` for better performance
    - Type imports required for schema definitions
    - Models: Use `gemini-2.5-flash-lite` for best cost/performance
+   - TTS: Use `gemini-2.5-flash-preview-tts` model with audio modality
+   - TTS returns WAV format requiring header construction
 
 ---
 

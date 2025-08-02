@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextRequest } from 'next/server'
 import { generateVoiceForSlides } from '@/lib/ai/cartesia'
+import { generateVoiceForSlidesWithGemini } from '@/lib/ai/gemini-tts'
 import { ScriptSlide } from '@/lib/ai/gemini'
 
 export const runtime = 'nodejs' // Node runtime needed for Buffer handling
@@ -18,7 +19,12 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { slides, apiKey, voiceOptions } = body
+    const { 
+      slides, 
+      apiKey, 
+      ttsProvider = 'cartesia', // Default to Cartesia
+      voiceOptions 
+    } = body
 
     // Validate input
     if (!slides || !Array.isArray(slides) || slides.length === 0) {
@@ -30,7 +36,15 @@ export async function POST(request: NextRequest) {
 
     if (!apiKey || typeof apiKey !== 'string') {
       return Response.json(
-        { error: 'Cartesia API key is required' },
+        { error: 'API key is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate TTS provider
+    if (!['cartesia', 'gemini'].includes(ttsProvider)) {
+      return Response.json(
+        { error: 'Invalid TTS provider. Must be "cartesia" or "gemini"' },
         { status: 400 }
       )
     }
@@ -47,18 +61,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate voice
-    const voiceResult = await generateVoiceForSlides(
-      slides,
-      apiKey,
-      voiceOptions
-    )
+    // Generate voice based on provider
+    let voiceResult
+    
+    if (ttsProvider === 'gemini') {
+      // Use Gemini TTS
+      voiceResult = await generateVoiceForSlidesWithGemini(
+        slides,
+        apiKey,
+        voiceOptions
+      )
+    } else {
+      // Use Cartesia TTS (default)
+      voiceResult = await generateVoiceForSlides(
+        slides,
+        apiKey,
+        voiceOptions
+      )
+    }
 
     // Convert buffer to base64 for JSON response
     const audioBase64 = voiceResult.audioBuffer.toString('base64')
 
     return Response.json({
       success: true,
+      provider: ttsProvider,
       audio: {
         data: audioBase64,
         format: voiceResult.format,
@@ -73,14 +100,20 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message.includes('API key')) {
         return Response.json(
-          { error: 'Invalid API key. Please check your Cartesia API key.' },
+          { error: 'Invalid API key. Please check your API key.' },
           { status: 403 }
         )
       }
-      if (error.message.includes('rate limit')) {
+      if (error.message.includes('rate limit') || error.message.includes('quota')) {
         return Response.json(
           { error: 'Rate limit exceeded. Please try again later.' },
           { status: 429 }
+        )
+      }
+      if (error.message.includes('model')) {
+        return Response.json(
+          { error: 'TTS model not available. Ensure you have access to the TTS model.' },
+          { status: 403 }
         )
       }
     }

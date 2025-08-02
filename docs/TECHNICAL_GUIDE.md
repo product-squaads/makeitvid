@@ -163,14 +163,16 @@ export async function POST(request: Request) {
 }
 ```
 
-### 3. Cartesia Voice Integration (Tested & Working)
+### 3. Dual TTS Integration (Both Tested & Working)
 
-#### Installation
+#### Option A: Cartesia TTS (Default - Better Quality)
+
+##### Installation
 ```bash
 pnpm add axios
 ```
 
-#### lib/ai/cartesia.ts
+##### lib/ai/cartesia.ts
 ```typescript
 import axios from 'axios'
 
@@ -225,6 +227,87 @@ export async function generateNarrationForSlides(
   const duration = (wordCount / wordsPerMinute) * 60
 
   return { audioBuffer, duration }
+}
+```
+
+##### Performance
+- Generation time: ~10 seconds
+- File size: ~300KB for 20 seconds
+- Format: MP3 (ready to use)
+- Quality: Excellent (9/10)
+
+#### Option B: Gemini TTS (Budget Option - Free Preview)
+
+##### Installation
+```bash
+pnpm add mime  # For MIME type handling
+```
+
+##### lib/ai/gemini-tts.ts
+```typescript
+import { GoogleGenAI } from '@google/genai'
+
+// Use special TTS model
+const model = 'gemini-2.5-flash-preview-tts'
+
+export async function generateVoiceWithGemini(
+  text: string,
+  apiKey: string,
+  voiceName: string = 'Kore'
+): Promise<Buffer> {
+  const ai = new GoogleGenAI({ apiKey })
+  
+  const config = {
+    temperature: 1,
+    responseModalities: ['audio'] as const,
+    speechConfig: {
+      voiceConfig: {
+        prebuiltVoiceConfig: { voiceName }
+      }
+    },
+  }
+
+  const response = await ai.models.generateContentStream({
+    model,
+    config,
+    contents: [{
+      role: 'user',
+      parts: [{ text }]
+    }]
+  })
+
+  // Process WAV audio chunks
+  let audioBuffer: Buffer | null = null
+  for await (const chunk of response) {
+    if (chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+      const inlineData = chunk.candidates[0].content.parts[0].inlineData
+      // WAV format needs header construction
+      audioBuffer = convertToWav(inlineData.data, inlineData.mimeType)
+      break
+    }
+  }
+
+  return audioBuffer
+}
+
+// Available voices: Zephyr, Puck, Charon, Kore, Fenrir, etc.
+```
+
+##### Performance
+- Generation time: ~18 seconds  
+- File size: ~1.1MB for 20 seconds
+- Format: WAV (needs conversion to MP3)
+- Quality: Good (7/10)
+
+#### Choosing TTS Provider
+```typescript
+// In your API route
+const ttsProvider = req.body.ttsProvider || 'cartesia'
+
+if (ttsProvider === 'gemini') {
+  audioBuffer = await generateVoiceWithGemini(text, geminiKey, voiceName)
+} else {
+  audioBuffer = await generateVoiceForSlides(slides, cartesiaKey)
 }
 ```
 
@@ -525,30 +608,38 @@ pnpm add -D tsx dotenv @types/node
 
 ### Example Integration Test
 ```typescript
-// src/tests/api-integration.test.ts
+// src/tests/tts-comparison.test.ts
 import { generateVideoScript } from '../lib/ai/gemini'
 import { generateVoiceForSlides } from '../lib/ai/cartesia'
+import { generateVoiceForSlidesWithGemini } from '../lib/ai/gemini-tts'
 import * as dotenv from 'dotenv'
 
 dotenv.config()
 
-async function testAPIs() {
-  // Test Gemini
+async function testAllProviders() {
+  // Test Gemini Script Generation
   const slides = await generateVideoScript(
     'Test document content',
     process.env.GOOGLE_GEMINI_API_KEY!
   )
   console.log(`Generated ${slides.length} slides`)
   
-  // Test Cartesia
-  const voice = await generateVoiceForSlides(
+  // Test Cartesia TTS
+  const cartesiaVoice = await generateVoiceForSlides(
     slides,
     process.env.CARTESIA_API_KEY!
   )
-  console.log(`Generated ${voice.audioBuffer.length} bytes of audio`)
+  console.log(`Cartesia: ${cartesiaVoice.audioBuffer.length} bytes (MP3)`)
+  
+  // Test Gemini TTS
+  const geminiVoice = await generateVoiceForSlidesWithGemini(
+    slides,
+    process.env.GOOGLE_GEMINI_API_KEY!
+  )
+  console.log(`Gemini: ${geminiVoice.audioBuffer.length} bytes (WAV)`)
 }
 
-// Run: npx tsx src/tests/api-integration.test.ts
+// Run: npx tsx src/tests/tts-comparison.test.ts
 ```
 
 ## Security Considerations

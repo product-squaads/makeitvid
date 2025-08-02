@@ -10,7 +10,7 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 - **Backend**: Next.js API Routes (no separate backend service)
 - **Authentication**: Clerk (fastest setup, includes user management)
 - **LLM Provider**: Google Gemini API (cost-effective, good performance)
-- **TTS Provider**: Cartesia API (fast voice cloning, cost-effective)
+- **TTS Provider**: Dual option - Cartesia API (better quality) OR Gemini TTS (simpler integration)
 - **Video Generation**: HTML/CSS slides → Puppeteer screenshots → FFmpeg
 - **Deployment**: Vercel (optimal for Next.js)
 
@@ -36,10 +36,14 @@ makeitvid is an AI-powered video generation platform that transforms documents i
                         │ (Script Gen)    │
                         └────────┬────────┘
                                  │
-                        ┌────────▼────────┐
-                        │ Cartesia API    │
-                        │ (Voice Gen)     │
-                        └────────┬────────┘
+                    ┌────────────┴────────────┐
+                    │                         │
+           ┌────────▼────────┐      ┌────────▼────────┐
+           │ Cartesia API    │  OR  │ Gemini TTS API  │
+           │ (MP3 Voice Gen) │      │ (WAV Voice Gen) │
+           └────────┬────────┘      └────────┬────────┘
+                    │                         │
+                    └────────────┬────────────┘
                                  │
                         ┌────────▼────────┐
                         │ HTML Generator  │
@@ -58,11 +62,11 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 
 ## Current Project Status
 
-### Overall Progress: 4/10 hours used
-- **Current Phase**: AI Integration Complete with Tests
-- **Next Phase**: HTML Slide Generator & Video Assembly
+### Overall Progress: 5.25/10 hours used
+- **Current Phase**: Voice Generation Complete with Dual TTS Support
+- **Next Phase**: HTML Slide Generator & Video Assembly (Phase 4)
 - **Blockers**: None
-- **Target Completion**: 6 hours remaining
+- **Target Completion**: 4.75 hours remaining
 
 ### Completed Tasks ✅
 
@@ -171,6 +175,47 @@ makeitvid is an AI-powered video generation platform that transforms documents i
   - Initial Gemini implementation used wrong response structure
   - Cartesia API returned 422 error for speed parameter
 
+#### Task: Gemini TTS Discovery & Implementation ✅
+- **Status**: Completed
+- **Time Spent**: 0.5 hours
+- **Key Learnings**:
+  - Gemini TTS requires special model: `gemini-2.5-flash-preview-tts`
+  - Returns WAV format audio that needs header construction
+  - 30 voice options with descriptive styles (Kore=Firm, Puck=Upbeat)
+  - Larger file sizes (WAV vs MP3) but good quality
+  - Successfully tested both providers with real API calls
+- **Code Changes**:
+  - Created `src/lib/ai/gemini-tts.ts` with full WAV support
+  - Added WAV header construction utilities
+  - Created `src/tests/tts-comparison.test.ts` for side-by-side testing
+  - Generated actual audio files for quality comparison
+- **Test Results**:
+  - Cartesia: 10.6s generation, 342KB MP3, excellent quality
+  - Gemini: 17.9s generation, 1.1MB WAV, good quality
+  - Both services working perfectly in production
+- **Recommendations**:
+  - Implement dual provider strategy
+  - Use Cartesia as default (faster, smaller files)
+  - Offer Gemini as budget option (free preview period)
+
+#### Task: Dual TTS Provider API Implementation ✅
+- **Status**: Completed
+- **Time Spent**: 0.25 hours
+- **Key Implementation**:
+  - Updated `/api/generate/voice` to accept `ttsProvider` parameter
+  - Supports both 'cartesia' and 'gemini' providers
+  - Returns base64 audio data with format info (MP3/WAV)
+  - Proper error handling for both providers
+- **API Usage**:
+  ```json
+  {
+    "slides": [...],
+    "apiKey": "your-api-key",
+    "ttsProvider": "cartesia" | "gemini",
+    "voiceOptions": { "voiceName": "Kore" }
+  }
+  ```
+
 ### Phase 2: AI Integration (Hours 3-4) ✅
 - [x] Create `/api/generate/script` endpoint
 - [x] Integrate Google Gemini API
@@ -180,12 +225,13 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 - [x] Implement prompt engineering for video scripts
 - [x] Add error handling and rate limiting (basic implementation)
 
-### Phase 3: Voice Generation (Hours 5-6)
-- [ ] Create `/api/generate/voice` endpoint
-- [ ] Integrate Cartesia API
-- [ ] Implement voice selection
-- [ ] Handle audio file generation
-- [ ] Add progress tracking
+### Phase 3: Voice Generation (Hours 5-6) ✅
+- [x] Create `/api/generate/voice` endpoint
+- [x] Integrate Cartesia API
+- [x] Integrate Gemini TTS as alternative
+- [x] Implement voice selection (30 Gemini voices + Cartesia options)
+- [x] Handle audio file generation (MP3 for Cartesia, WAV for Gemini)
+- [x] Dual provider support with runtime selection
 
 ### Phase 4: Video Assembly (Hours 7-8)
 - [ ] Create HTML slide templates
@@ -222,11 +268,12 @@ Document: ${userDocument}
 `;
 ```
 
-### 3. Voice Generation (Cartesia)
-- Single voice option for MVP
-- English language only initially
+### 3. Voice Generation (Dual Provider Support) ✅
+- **Cartesia**: Professional voices, MP3 format, 10s generation
+- **Gemini TTS**: 30 voice options, WAV format, 18s generation
+- English language support (both providers)
 - Natural pacing (150 words/minute)
-- MP3 output format
+- Runtime provider selection via API
 
 ### 4. Slide System
 ```html

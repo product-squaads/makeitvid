@@ -8,6 +8,9 @@
 3. **Streaming Required**: Use `generateContentStream()` for proper responses
 4. **Type Imports**: Must import `Type` for schema definitions
 5. **Response Structure**: No nested `.response.text()` - just `chunk.text` in stream
+6. **TTS Discovery**: Gemini supports TTS with special model `gemini-2.5-flash-preview-tts`
+7. **Audio Format**: Returns WAV format requiring custom header construction
+8. **Voice Options**: 30 voices with descriptive names (Kore=Firm, Puck=Upbeat)
 
 ### Cartesia API
 1. **Headers**: Use `X-API-Key` NOT `Authorization: Bearer`
@@ -50,12 +53,30 @@
 ## Time Tracking
 
 - Initial estimate: 10 hours
-- Time spent so far: 4 hours
-- Progress: 40% complete
+- Time spent so far: 5 hours
+- Progress: 50% complete
 - Efficiency tips:
   - Integration tests saved ~1 hour of debugging
   - Real API testing caught issues immediately
   - Good documentation prevents repeated research
+  - Discovering Gemini TTS saved potential vendor integration time
+
+## TTS Provider Comparison (New Discovery)
+
+### Performance Results
+- **Cartesia**: 10.6s generation, 342KB MP3, excellent quality
+- **Gemini**: 17.9s generation, 1.1MB WAV, good quality
+
+### Key Decision
+- Implement **dual provider strategy**
+- Default to Cartesia for production (better performance)
+- Offer Gemini as budget option (free during preview)
+
+### Technical Insights
+1. **WAV Header Construction**: Gemini returns raw audio needing WAV headers
+2. **MIME Type Parsing**: Audio format embedded in response metadata
+3. **File Size Difference**: WAV is ~3x larger than MP3
+4. **Model Discovery**: TTS requires specific model not documented prominently
 
 ## Next Phase Preparation
 
@@ -64,3 +85,4 @@ For HTML/Video generation:
 - FFmpeg for video assembly
 - Temporary file management critical
 - Consider streaming for large files
+- May need WAV→MP3 conversion for Gemini TTS
