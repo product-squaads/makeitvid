@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { generateVoiceWithGemini } from '@/lib/ai/gemini-tts'
 import { getDevApiKeys, isDevelopment } from '@/lib/env'
+import { saveAudio } from '@/lib/storage'
 
 export const runtime = 'nodejs'
 
@@ -47,12 +48,17 @@ export async function POST(request: NextRequest) {
     // Generate voice using Gemini
     const audioBuffer = await generateVoiceWithGemini(text, apiKey, voiceName)
 
-    // Return audio as binary response
-    return new Response(audioBuffer, {
-      headers: {
-        'Content-Type': 'audio/wav',
-        'Content-Length': audioBuffer.length.toString(),
-      },
+    // Save audio to storage and get URL
+    const timestamp = Date.now()
+    const filename = `audio-${timestamp}.wav`
+    const audioUrl = await saveAudio(audioBuffer, filename)
+
+    // Return both the audio and its storage URL
+    return NextResponse.json({
+      success: true,
+      audioUrl,
+      audioData: audioBuffer.toString('base64'),
+      format: 'wav'
     })
 
   } catch (error) {

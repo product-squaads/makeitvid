@@ -1,27 +1,47 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { redirect } from 'next/navigation'
+import { redirect, useRouter } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Loader2, Sparkles, Volume2, Settings } from 'lucide-react'
+import { 
+  Loader2, 
+  Plus, 
+  Calendar,
+  Clock,
+  FileText,
+  Trash2,
+  Play,
+  Settings
+} from 'lucide-react'
 import { SettingsModal } from '@/components/settings-modal'
+
+interface VideoProject {
+  id: string
+  title: string
+  content: string
+  scriptSections: any[]
+  audioUrls: string[]
+  createdAt: string
+  updatedAt: string
+  status: 'draft' | 'generating' | 'completed'
+}
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser()
-  const [content, setContent] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [currentStep, setCurrentStep] = useState('')
-  const [scriptSections, setScriptSections] = useState<any[]>([])
-  const [audioUrls, setAudioUrls] = useState<string[]>([])
-  const [error, setError] = useState('')
+  const router = useRouter()
+  const [projects, setProjects] = useState<VideoProject[]>([])
   const [showSettings, setShowSettings] = useState(false)
-  const [audioGenerationStatus, setAudioGenerationStatus] = useState<Record<number, 'pending' | 'generating' | 'completed' | 'error'>>({})
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Load projects from localStorage
+    const loadedProjects = JSON.parse(localStorage.getItem('video_projects') || '[]')
+    setProjects(loadedProjects)
+    setIsLoading(false)
+  }, [])
 
   if (!isLoaded) {
     return <div className="min-h-screen flex items-center justify-center">
@@ -33,149 +53,33 @@ export default function DashboardPage() {
     redirect('/sign-in')
   }
 
-  const generateVideo = async () => {
-    if (!content.trim()) {
-      setError('Please provide some content to generate a video')
-      return
+  const deleteProject = (projectId: string) => {
+    if (confirm('Are you sure you want to delete this project?')) {
+      const updatedProjects = projects.filter(p => p.id !== projectId)
+      setProjects(updatedProjects)
+      localStorage.setItem('video_projects', JSON.stringify(updatedProjects))
     }
+  }
 
-    // Check if API keys are set or using dev keys
-    const useDevKeys = localStorage.getItem('use_dev_keys') === 'true'
-    const geminiKey = localStorage.getItem('gemini_api_key')
-    
-    if (!useDevKeys && !geminiKey) {
-      setError('Please configure your Gemini API key in settings first')
-      setShowSettings(true)
-      return
-    }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
 
-    setIsGenerating(true)
-    setProgress(0)
-    setError('')
-    setScriptSections([])
-    setAudioUrls([])
-
-    try {
-      // Step 1: Generate script with 3 sections initially
-      setCurrentStep('Generating script sections...')
-      setProgress(10)
-      
-      const scriptResponse = await fetch('/api/generate/script', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(useDevKeys && { 'x-use-dev-keys': 'true' })
-        },
-        body: JSON.stringify({
-          document: content,
-          sections: 3, // Start with 3 sections
-          apiKey: useDevKeys ? '' : (localStorage.getItem('gemini_api_key') || '')
-        }),
-      })
-
-      if (!scriptResponse.ok) {
-        const data = await scriptResponse.json()
-        throw new Error(data.error || 'Failed to generate script')
-      }
-
-      const scriptData = await scriptResponse.json()
-      const sections = scriptData.slides || []
-      setScriptSections(sections)
-      
-      // Initialize audio generation status
-      const initialStatus: Record<number, 'pending' | 'generating' | 'completed' | 'error'> = {}
-      sections.forEach((_: any, index: number) => {
-        initialStatus[index] = 'pending'
-      })
-      setAudioGenerationStatus(initialStatus)
-      setProgress(30)
-
-      // Step 2: Generate audio for each section sequentially with delays
-      setCurrentStep('Generating audio narrations...')
-      
-      const audioUrlsArray: string[] = new Array(sections.length)
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-      
-      for (let i = 0; i < sections.length; i++) {
-        const slide = sections[i]
-        
-        // Update status to generating
-        setAudioGenerationStatus(prev => ({ ...prev, [i]: 'generating' }))
-        setCurrentStep(`Generating audio for section ${i + 1} of ${sections.length}...`)
-        
-        try {
-          const response = await fetch('/api/generate/voice-gemini', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              ...(useDevKeys && { 'x-use-dev-keys': 'true' })
-            },
-            body: JSON.stringify({
-              text: slide.narration,
-              apiKey: useDevKeys ? '' : (localStorage.getItem('gemini_api_key') || ''),
-              voiceName: 'Kore'
-            }),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            if (response.status === 429) {
-              // Rate limit error - wait longer
-              setCurrentStep(`Rate limit reached. Waiting 60 seconds before continuing...`)
-              setAudioGenerationStatus(prev => ({ ...prev, [i]: 'error' }))
-              await delay(60000) // Wait 1 minute
-              i-- // Retry this section
-              continue
-            }
-            throw new Error(errorData.error || `Failed to generate audio for section ${i + 1}`)
-          }
-
-          const blob = await response.blob()
-          audioUrlsArray[i] = URL.createObjectURL(blob)
-          
-          // Update status to completed
-          setAudioGenerationStatus(prev => ({ ...prev, [i]: 'completed' }))
-          setAudioUrls([...audioUrlsArray])
-          
-          // Update progress
-          const progressPercent = 30 + ((i + 1) / sections.length) * 50
-          setProgress(Math.min(progressPercent, 80))
-          
-          // Add delay between requests (except for the last one)
-          if (i < sections.length - 1) {
-            setCurrentStep(`Waiting before next audio generation...`)
-            await delay(5000) // 5 second delay between requests
-          }
-        } catch (err) {
-          setAudioGenerationStatus(prev => ({ ...prev, [i]: 'error' }))
-          throw err
-        }
-      }
-      
-      setProgress(80)
-
-      // Step 3: Save to localStorage
-      setCurrentStep('Saving project...')
-      const project = {
-        id: Date.now().toString(),
-        title: scriptData.slides[0]?.title || 'Untitled Video',
-        content,
-        scriptSections: scriptData.slides,
-        audioUrls: audioUrls,
-        createdAt: new Date().toISOString(),
-      }
-
-      const existingProjects = JSON.parse(localStorage.getItem('video_projects') || '[]')
-      existingProjects.unshift(project)
-      localStorage.setItem('video_projects', JSON.stringify(existingProjects))
-
-      setProgress(100)
-      setCurrentStep('Video generation complete!')
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setIsGenerating(false)
+  const getStatusBadge = (status: VideoProject['status']) => {
+    switch (status) {
+      case 'draft':
+        return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">Draft</span>
+      case 'generating':
+        return <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">Generating</span>
+      case 'completed':
+        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">Completed</span>
     }
   }
 
@@ -184,7 +88,7 @@ export default function DashboardPage() {
       <header className="bg-white shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            <h1 className="text-xl font-semibold">makeitvid</h1>
+            <h1 className="text-xl font-semibold">makeitvid Dashboard</h1>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
                 Welcome, {user.firstName || user.username || 'User'}!
@@ -203,113 +107,107 @@ export default function DashboardPage() {
       </header>
       
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Content Input Section */}
+        <div className="mb-8 flex items-center justify-between">
           <div>
-            <Card className="p-6">
-              <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-600" />
-                Your Content
-              </h2>
-              <Textarea
-                placeholder="Paste your content here... This can be an article, lesson notes, documentation, or any text you want to turn into a video."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="min-h-[400px] resize-none"
-                disabled={isGenerating}
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                💡 Tip: Videos will be generated with 3 sections to ensure quality and avoid rate limits.
-              </p>
-              <div className="mt-4">
-                <Button
-                  onClick={generateVideo}
-                  disabled={isGenerating || !content.trim()}
-                  className="w-full"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    'Generate Video'
-                  )}
-                </Button>
-              </div>
-            </Card>
-
-            {error && (
-              <Card className="mt-4 p-4 bg-red-50 border-red-200">
-                <p className="text-red-700 text-sm">{error}</p>
-              </Card>
-            )}
+            <h2 className="text-2xl font-bold text-gray-900">Your Videos</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Manage and continue working on your video projects
+            </p>
           </div>
+          <Button 
+            onClick={() => router.push('/create')}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Create New Video
+          </Button>
+        </div>
 
-          {/* Generation Progress & Results */}
-          <div>
-            {isGenerating && (
-              <Card className="p-6 mb-4">
-                <h3 className="font-medium mb-4">Generation Progress</h3>
-                <Progress value={progress} className="mb-2" />
-                <p className="text-sm text-gray-600">{currentStep}</p>
-              </Card>
-            )}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          </div>
+        ) : projects.length === 0 ? (
+          <Card className="p-12 text-center">
+            <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No videos yet</h3>
+            <p className="text-gray-600 mb-6">
+              Get started by creating your first AI-powered video
+            </p>
+            <Button 
+              onClick={() => router.push('/create')}
+              className="inline-flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create Your First Video
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project) => (
+              <Card 
+                key={project.id} 
+                className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => router.push(`/create?id=${project.id}`)}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="font-semibold text-lg line-clamp-1">
+                    {project.title}
+                  </h3>
+                  {getStatusBadge(project.status)}
+                </div>
+                
+                <p className="text-sm text-gray-600 line-clamp-2 mb-4">
+                  {project.content || 'No content yet...'}
+                </p>
 
-            {scriptSections.length > 0 && (
-              <Card className="p-6">
-                <h3 className="font-medium mb-4">Generated Sections</h3>
-                <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                  {scriptSections.map((section, index) => {
-                    const status = audioGenerationStatus[index] || 'pending'
-                    return (
-                      <div key={section.id} className={`p-3 rounded-lg transition-all ${
-                        status === 'generating' ? 'bg-blue-50 border border-blue-200' :
-                        status === 'completed' ? 'bg-gray-50' :
-                        status === 'error' ? 'bg-red-50 border border-red-200' :
-                        'bg-gray-50 opacity-60'
-                      }`}>
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium text-sm flex items-center gap-2">
-                            Section {index + 1}: {section.title}
-                            {status === 'generating' && (
-                              <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                            )}
-                          </h4>
-                          {audioUrls[index] && status === 'completed' && (
-                            <button
-                              onClick={() => {
-                                const audio = new Audio(audioUrls[index])
-                                audio.play()
-                              }}
-                              className="text-purple-600 hover:text-purple-700"
-                            >
-                              <Volume2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 line-clamp-2">
-                          {section.narration}
-                        </p>
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-500">
-                            Duration: {section.duration}s
-                          </p>
-                          <p className="text-xs">
-                            {status === 'pending' && <span className="text-gray-400">Waiting...</span>}
-                            {status === 'generating' && <span className="text-blue-600">Generating audio...</span>}
-                            {status === 'completed' && <span className="text-green-600">✓ Ready</span>}
-                            {status === 'error' && <span className="text-red-600">⚠ Error</span>}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })}
+                <div className="space-y-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3 w-3" />
+                    <span>{project.scriptSections.length} sections</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3 w-3" />
+                    <span>Created {formatDate(project.createdAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-3 w-3" />
+                    <span>Updated {formatDate(project.updatedAt)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex gap-2">
+                    {project.status === 'completed' && project.audioUrls.length > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Play first audio
+                          const audio = new Audio(project.audioUrls[0])
+                          audio.play()
+                        }}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
+                        title="Play preview"
+                      >
+                        <Play className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deleteProject(project.id)
+                    }}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    title="Delete project"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </Card>
-            )}
+            ))}
           </div>
-        </div>
+        )}
       </main>
       
       <SettingsModal 
