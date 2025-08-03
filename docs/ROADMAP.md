@@ -62,11 +62,11 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 
 ## Current Project Status
 
-### Overall Progress: 10/10 hours used
-- **Current Phase**: HTML Slide Generation System Complete
-- **MVP Status**: COMPLETE - All core features implemented
+### Overall Progress: 10.75/10 hours used
+- **Current Phase**: UX Enhancement - Slide Positioning & Modal Size
+- **MVP Status**: COMPLETE - All core features implemented + bug fixes + UX improvements
 - **Blockers**: None
-- **Achievement**: Full MVP delivered with animated slide preview system
+- **Achievement**: Full MVP with properly scaled slide preview and enhanced modal viewing experience
 
 ### Current Context
 The makeitvid MVP is now complete with a fully functional AI-powered video generation system. Users can:
@@ -425,6 +425,66 @@ FFmpeg (images + audio) → MP4 Video → Download
   - Each slide is self-contained and render-ready
   - Themes are dynamically applied during generation
   - Perfect for video export with Puppeteer
+
+#### Task: Iframe Rendering Fix ✅
+- **Status**: Completed
+- **Time Spent**: 0.25 hours
+- **Key Learnings**:
+  - Data URLs with encoded HTML can cause rendering issues in iframes
+  - The srcDoc attribute is more reliable for complete HTML documents
+  - Example project used srcDoc directly, not data URLs
+  - Both complete HTML documents and partial HTML need to be supported
+- **Code Changes**:
+  - Updated `HtmlSlidePreviewModal` to use srcDoc instead of data URLs
+  - Added detection for complete vs partial HTML documents
+  - Implemented proper fallback handling with srcDoc
+- **Challenges**:
+  - Initial implementation used data URLs which didn't render properly
+  - Solved by switching to srcDoc attribute like the example project
+
+#### Task: Comprehensive Iframe Rendering Fix ✅
+- **Status**: Completed
+- **Time Spent**: 0.25 hours
+- **Key Learnings**:
+  - srcDoc is more reliable than data URLs for iframe content
+  - Need to handle both complete HTML documents and partial HTML
+  - Force reflow and fallback mechanisms ensure content loads
+  - Example project pattern uses direct srcDoc assignment
+  - Added comprehensive logging for debugging
+- **Code Changes**:
+  - Updated `HtmlSlidePreviewModal` to use srcDoc exclusively
+  - Added fallback with document.write for edge cases
+  - Removed deprecated iframe attributes (scrolling, frameBorder)
+  - Added extensive console logging for debugging
+  - Created test page to verify iframe loading methods
+- **Implementation Details**:
+  - Clear existing content before setting new content
+  - Force reflow with offsetHeight to ensure iframe is ready
+  - Handle both complete HTML and partial HTML content
+  - Fallback mechanism using onload and document.write
+  - Match example project's iframe implementation pattern
+
+#### Task: Slide Positioning & Modal Enhancement ✅
+- **Status**: Completed
+- **Time Spent**: 0.25 hours
+- **Key Learnings**:
+  - Slide content designed for 1920x1080 needs scaling to fit iframe viewport
+  - CSS transform scale with proper centering ensures content displays correctly
+  - ResizeObserver helps maintain proper scaling on window resize
+  - Larger modal (95vw/95vh) provides better viewing experience
+  - Transform origin and absolute positioning critical for proper scaling
+- **Code Changes**:
+  - Increased modal size from 90vw/90vh to 95vw/95vh
+  - Added proper iframe container with aspect ratio preservation
+  - Implemented dynamic scaling calculation based on iframe dimensions
+  - Added CSS injection for proper body positioning
+  - Created applyScaling function for consistent scaling logic
+  - Added ResizeObserver for responsive scaling
+- **Technical Solution**:
+  - Calculate scale factor: `Math.min(iframeWidth/1920, iframeHeight/1080)`
+  - Apply transform with centering offsets
+  - Inject CSS to ensure body is positioned absolutely
+  - Use onload event to apply scaling after content renders
 
 ### Phase 2: AI Integration (Hours 3-4) ✅
 - [x] Create `/api/generate/script` endpoint

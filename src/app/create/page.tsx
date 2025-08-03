@@ -605,6 +605,9 @@ function CreateVideoContent() {
                               <>
                                 <button
                                   onClick={() => {
+                                    console.log('🎬 Preview button clicked, section:', section)
+                                    console.log('Section keys:', Object.keys(section))
+                                    console.log('Has html field?', 'html' in section)
                                     setSelectedSlide(section)
                                     setSelectedSlideIndex(index)
                                     setShowSlidePreview(true)
