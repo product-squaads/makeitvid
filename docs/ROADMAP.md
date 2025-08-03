@@ -292,6 +292,71 @@ makeitvid is an AI-powered video generation platform that transforms documents i
   - Delete projects from dashboard
   - Preview audio from dashboard
 
+## Next Steps (Final Phase - Video Assembly)
+
+### Immediate Tasks (1.5 hours remaining):
+
+1. **HTML Slide Templates** (0.25 hours)
+   - Create responsive slide layouts
+   - Title slide, content slide, conclusion slide
+   - Use Tailwind for consistent styling
+   - Support for bullet points and images
+
+2. **Slide Rendering System** (0.25 hours)
+   - Convert script sections to HTML
+   - Dynamic content injection
+   - Timing synchronization with audio
+
+3. **Video Generation Pipeline** (0.75 hours)
+   - Puppeteer setup for screenshots
+   - FFmpeg integration for video creation
+   - Sync slides with audio tracks
+   - Generate MP4 output
+
+4. **Final Integration** (0.25 hours)
+   - Add video preview to create page
+   - Implement video download
+   - Update project status
+   - Store video URL
+
+### Technical Approach:
+```
+Script Sections → HTML Slides → Puppeteer Screenshots → 
+FFmpeg (images + audio) → MP4 Video → Download
+```
+
+### Challenges to Consider:
+- Puppeteer in serverless environment (may need external service)
+- FFmpeg binary availability on Vercel
+- Video file size and generation time
+- Synchronization accuracy between slides and audio
+
+#### Task: Lean MVP - Slide Preview System ✅
+- **Status**: Completed
+- **Time Spent**: 0.5 hours
+- **Key Learnings**:
+  - Modal-based preview is faster to implement than full video export
+  - CSS animations provide smooth, professional transitions
+  - Real-time preview gives immediate value to users
+  - Lean approach validates concept before heavy video processing
+- **Code Changes**:
+  - Created `SlidePreviewModal` component with full-screen slides
+  - Added CSS animations for elegant transitions
+  - Implemented three slide types: title, content, conclusion
+  - Added play button to each section for instant preview
+  - Synchronized audio playback with visual presentation
+  - Added progress bar and playback controls
+- **Design Decisions**:
+  - Gradient backgrounds with animated patterns
+  - Typography-focused design for clarity
+  - Smooth animations that enhance comprehension
+  - Full-screen modal for immersive experience
+- **MVP Benefits**:
+  - Users can immediately see and hear their content
+  - No heavy processing or long wait times
+  - Validates the concept before building export features
+  - Provides value with minimal complexity
+
 ### Phase 2: AI Integration (Hours 3-4) ✅
 - [x] Create `/api/generate/script` endpoint
 - [x] Integrate Google Gemini API
@@ -309,12 +374,14 @@ makeitvid is an AI-powered video generation platform that transforms documents i
 - [x] Handle audio file generation (MP3 for Cartesia, WAV for Gemini)
 - [x] Dual provider support with runtime selection
 
-### Phase 4: Video Assembly (Hours 7-8)
-- [ ] Create HTML slide templates
-- [ ] Build slide rendering system
-- [ ] Implement Puppeteer for screenshots
-- [ ] Set up FFmpeg for video creation
-- [ ] Create `/api/generate/video` endpoint
+### Phase 4: Lean MVP - Slide Preview System (Hour 9.5) ✅ COMPLETED
+- [x] Create elegant animated slide templates
+- [x] Build slide rendering system with dynamic content
+- [x] Implement slide preview modal with audio playback
+- [x] Add smooth animations and transitions
+- [x] Sync audio playback with visual presentation
+- [x] Create play button for instant preview
+- [x] Progress bar showing audio timeline
 
 ### Phase 5: UI & Polish (Hours 9-10)
 - [x] Build content input interface

@@ -33,6 +33,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+storage/
+
 .claude
 CLAUDE.local.md
 local_stuff

@@ -17,9 +17,12 @@ import {
   Save, 
   Download,
   ArrowLeft,
-  FileDown
+  FileDown,
+  PlayCircle,
+  Presentation
 } from 'lucide-react'
 import { SettingsModal } from '@/components/settings-modal'
+import { SlidePreviewModal } from '@/components/slide-preview-modal'
 
 interface VideoProject {
   id: string
@@ -48,6 +51,9 @@ export default function CreateVideoPage() {
   const [showSettings, setShowSettings] = useState(false)
   const [audioGenerationStatus, setAudioGenerationStatus] = useState<Record<number, 'pending' | 'generating' | 'completed' | 'error'>>({})
   const [isSaving, setIsSaving] = useState(false)
+  const [showSlidePreview, setShowSlidePreview] = useState(false)
+  const [selectedSlide, setSelectedSlide] = useState<any>(null)
+  const [selectedSlideIndex, setSelectedSlideIndex] = useState(0)
 
   // Load existing project if ID is provided
   useEffect(() => {
@@ -414,7 +420,13 @@ export default function CreateVideoPage() {
             {scriptSections.length > 0 && (
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-medium">Generated Sections</h3>
+                  <div>
+                    <h3 className="font-medium">Generated Sections</h3>
+                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                      <Presentation className="h-3 w-3" />
+                      Click play button to preview slides with audio
+                    </p>
+                  </div>
                   {audioUrls.filter(url => url).length === scriptSections.length && (
                     <button
                       onClick={downloadAllAudios}
@@ -447,17 +459,28 @@ export default function CreateVideoPage() {
                               <>
                                 <button
                                   onClick={() => {
+                                    setSelectedSlide(section)
+                                    setSelectedSlideIndex(index)
+                                    setShowSlidePreview(true)
+                                  }}
+                                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 p-1 rounded"
+                                  title="Play with slide preview"
+                                >
+                                  <PlayCircle className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={() => {
                                     const audio = new Audio(audioUrls[index])
                                     audio.play()
                                   }}
-                                  className="text-purple-600 hover:text-purple-700"
-                                  title="Play audio"
+                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
+                                  title="Play audio only"
                                 >
                                   <Volume2 className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => downloadAudio(audioUrls[index], index)}
-                                  className="text-gray-600 hover:text-gray-700"
+                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
                                   title="Download audio"
                                 >
                                   <Download className="h-4 w-4" />
@@ -493,6 +516,15 @@ export default function CreateVideoPage() {
       <SettingsModal 
         open={showSettings} 
         onOpenChange={setShowSettings} 
+      />
+      
+      <SlidePreviewModal
+        open={showSlidePreview}
+        onOpenChange={setShowSlidePreview}
+        slide={selectedSlide}
+        audioUrl={audioUrls[selectedSlideIndex]}
+        sectionIndex={selectedSlideIndex}
+        totalSections={scriptSections.length}
       />
     </div>
   )
