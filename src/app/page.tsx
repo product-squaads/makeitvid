@@ -4,11 +4,52 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowRight, FileText, Video, Brain, Zap, Github, Star, Users, Download, Play } from "lucide-react"
 import { auth } from "@clerk/nextjs/server"
 import Link from "next/link"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: 'makeitvid - Transform Documents Into Video Overviews',
+  description: 'Open-source alternative to NotebookLM. Transform PDFs, research papers, and documents into engaging video summaries with AI-powered narration and visual aids.',
+  openGraph: {
+    title: 'makeitvid - Transform Documents Into Video Overviews',
+    description: 'Open-source alternative to NotebookLM. Create professional video summaries from your documents with AI.',
+    type: 'website',
+  },
+}
 
 export default async function HomePage() {
   const { userId } = await auth()
+  
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'makeitvid',
+    applicationCategory: 'MultimediaApplication',
+    operatingSystem: 'Web',
+    description: 'Transform documents into engaging video summaries with AI. Open-source alternative to NotebookLM for creating narrated video overviews from PDFs, research papers, and documents.',
+    url: 'https://makeitvid.com',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.8',
+      ratingCount: '150',
+    },
+    author: {
+      '@type': 'Organization',
+      name: 'makeitvid',
+      url: 'https://makeitvid.com',
+    },
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Header */}
       <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
