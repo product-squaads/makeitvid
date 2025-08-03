@@ -1,21 +1,11 @@
 import { GoogleGenAI, Type } from '@google/genai'
+import { SlideTheme } from '../slide-themes'
 
 export interface ScriptSlide {
   id: number
-  title: string
-  content: string
   narration: string
   duration: number // seconds
-  visualElements?: {
-    type: 'bullet' | 'quote' | 'stat' | 'image' | 'icon'
-    text: string
-    animationDelay?: number // milliseconds
-    emphasis?: boolean
-  }[]
-  transitions?: {
-    entrance: 'fade' | 'slide' | 'zoom' | 'typewriter'
-    exitDelay?: number // milliseconds before transitioning
-  }
+  html: string // Complete HTML for the slide
 }
 
 export interface GenerateScriptResponse {
@@ -26,7 +16,9 @@ export async function generateVideoScript(
   document: string,
   apiKey: string,
   steeringPrompt?: string,
-  sections: number = 3
+  sections: number = 3,
+  theme?: SlideTheme,
+  animationType?: string
 ): Promise<ScriptSlide[]> {
   const ai = new GoogleGenAI({
     apiKey: apiKey,
@@ -42,32 +34,12 @@ export async function generateVideoScript(
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
-            required: ["id", "title", "content", "narration", "duration"],
+            required: ["id", "narration", "duration", "html"],
             properties: {
               id: { type: Type.NUMBER },
-              title: { type: Type.STRING },
-              content: { type: Type.STRING },
               narration: { type: Type.STRING },
               duration: { type: Type.NUMBER },
-              visualElements: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    type: { type: Type.STRING },
-                    text: { type: Type.STRING },
-                    animationDelay: { type: Type.NUMBER },
-                    emphasis: { type: Type.BOOLEAN },
-                  },
-                },
-              },
-              transitions: {
-                type: Type.OBJECT,
-                properties: {
-                  entrance: { type: Type.STRING },
-                  exitDelay: { type: Type.NUMBER },
-                },
-              },
+              html: { type: Type.STRING },
             },
           },
         },
@@ -75,60 +47,255 @@ export async function generateVideoScript(
     },
   }
 
+  // Convert Tailwind classes to CSS
+  const getBackgroundCSS = () => {
+    if (!theme) return 'background: #1a1a1a;'
+    const gradient = theme.colors.backgroundGradient || 'bg-gradient-to-br'
+    const colors = theme.colors.background
+    
+    // Map Tailwind gradient directions to CSS
+    const directionMap: Record<string, string> = {
+      'bg-gradient-to-br': 'to bottom right',
+      'bg-gradient-to-tr': 'to top right',
+      'bg-gradient-to-bl': 'to bottom left',
+      'bg-gradient-to-tl': 'to top left',
+      'bg-gradient-to-b': 'to bottom',
+      'bg-gradient-to-t': 'to top',
+      'bg-gradient-to-r': 'to right',
+      'bg-gradient-to-l': 'to left'
+    }
+    
+    const direction = directionMap[gradient] || 'to bottom right'
+    
+    // Convert Tailwind color classes to hex
+    const colorMap: Record<string, string> = {
+      'from-purple-900': '#581c87',
+      'via-blue-900': '#1e3a8a',
+      'to-indigo-900': '#312e81',
+      'from-gray-50': '#f9fafb',
+      'to-white': '#ffffff',
+      'from-pink-500': '#ec4899',
+      'via-red-500': '#ef4444',
+      'to-yellow-500': '#eab308',
+      'from-slate-900': '#0f172a',
+      'to-blue-900': '#1e3a8a',
+      'from-green-800': '#166534',
+      'via-green-700': '#15803d',
+      'to-emerald-800': '#065f46',
+      'from-black': '#000000',
+      'via-gray-900': '#111827',
+      'to-black': '#000000'
+    }
+    
+    const colorParts = colors.split(' ')
+    const mappedColors = colorParts.map(c => colorMap[c] || '#000000').join(', ')
+    
+    return `background: linear-gradient(${direction}, ${mappedColors});`
+  }
+  
+  const getTextColor = (tailwindClass: string) => {
+    const colorMap: Record<string, string> = {
+      'text-white': '#ffffff',
+      'text-gray-300': '#d1d5db',
+      'text-gray-100': '#f3f4f6',
+      'text-purple-400': '#c084fc',
+      'text-gray-900': '#111827',
+      'text-gray-700': '#374151',
+      'text-gray-600': '#4b5563',
+      'text-blue-600': '#2563eb',
+      'text-yellow-100': '#fef3c7',
+      'text-yellow-300': '#fde047',
+      'text-blue-200': '#bfdbfe',
+      'text-gray-200': '#e5e7eb',
+      'text-blue-400': '#60a5fa',
+      'text-green-100': '#dcfce7',
+      'text-green-50': '#f0fdf4',
+      'text-lime-400': '#a3e635',
+      'text-gray-400': '#9ca3af',
+      'text-indigo-400': '#818cf8'
+    }
+    return colorMap[tailwindClass] || '#000000'
+  }
+
+  const themeCSS = theme ? `
+    /* Theme Colors */
+    .slide-background { ${getBackgroundCSS()} }
+    .primary-text { color: ${getTextColor(theme.colors.primary)}; }
+    .secondary-text { color: ${getTextColor(theme.colors.secondary)}; }
+    .body-text { color: ${getTextColor(theme.colors.text)}; }
+    .accent-text { color: ${getTextColor(theme.colors.accent)}; }
+    
+    /* Theme Fonts */
+    .heading { ${theme.fonts.heading}; }
+    .body { ${theme.fonts.body}; }
+  ` : ''
+
+  const animationCSS = `
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-50px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes zoomIn {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    
+    @keyframes typewriter {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+    
+    .animate-fade { animation: fadeIn 0.8s ease-out forwards; }
+    .animate-slide { animation: slideIn 0.8s ease-out forwards; }
+    .animate-zoom { animation: zoomIn 0.8s ease-out forwards; }
+    .animate-typewriter { 
+      overflow: hidden;
+      white-space: nowrap;
+      animation: typewriter 2s steps(40, end) forwards;
+    }
+  `
+
   const prompt = `
-    Convert this document into a dynamic, animated video presentation with EXACTLY ${sections} slides that tell a compelling story.
+    Create ${sections} HTML slides for a video presentation. Each slide must be a complete, self-contained HTML document.
     ${steeringPrompt ? `Additional instructions: ${steeringPrompt}` : ''}
     
     CRITICAL REQUIREMENTS:
     
-    1. STORYTELLING APPROACH:
-    - Create a narrative arc across all ${sections} slides
-    - Each slide should build upon the previous one
-    - Use progressive disclosure - reveal information gradually
-    - Create emotional engagement through pacing and emphasis
+    1. For each slide, generate:
+       - id: Sequential number (1, 2, 3, etc.)
+       - narration: Natural speaking script (50-100 words)
+       - duration: Time in seconds (15-30)
+       - html: COMPLETE HTML document with all styling and animations
     
-    2. SLIDE STRUCTURE (for each slide):
-    - title: Compelling, curiosity-driven headline
-    - content: Raw bullet points or key phrases (keep for compatibility)
-    - narration: Natural, conversational script (50-100 words) that matches the visual timing
-    - duration: Total time in seconds (15-30 seconds, based on content complexity)
+    2. HTML STRUCTURE for each slide:
+       <!DOCTYPE html>
+       <html>
+       <head>
+         <style>
+           * { margin: 0; padding: 0; box-sizing: border-box; }
+           body {
+             width: 1920px;
+             height: 1080px;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             overflow: hidden;
+             font-family: -apple-system, system-ui, sans-serif;
+           }
+           
+           ${themeCSS}
+           ${animationCSS}
+           
+           .slide {
+             width: 100%;
+             height: 100%;
+             padding: 80px;
+             display: flex;
+             flex-direction: column;
+             justify-content: center;
+             position: relative;
+           }
+           
+           h1 { font-size: 72px; margin-bottom: 40px; }
+           h2 { font-size: 56px; margin-bottom: 32px; }
+           p { font-size: 36px; line-height: 1.6; margin-bottom: 24px; }
+           
+           .element { opacity: 0; }
+           .element-1 { animation-delay: 0ms; }
+           .element-2 { animation-delay: 800ms; }
+           .element-3 { animation-delay: 1600ms; }
+           .element-4 { animation-delay: 2400ms; }
+           .element-5 { animation-delay: 3200ms; }
+           .element-6 { animation-delay: 4000ms; }
+           .element-7 { animation-delay: 4800ms; }
+           .element-8 { animation-delay: 5600ms; }
+           
+           /* Background patterns */
+           .floating-shapes {
+             position: absolute;
+             width: 100%;
+             height: 100%;
+             overflow: hidden;
+             opacity: 0.1;
+           }
+           
+           .floating-shape {
+             position: absolute;
+             background: currentColor;
+             border-radius: 50%;
+             animation: float 20s infinite ease-in-out;
+           }
+           
+           @keyframes float {
+             0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+             33% { transform: translateY(-100px) translateX(100px) scale(1.1); }
+             66% { transform: translateY(100px) translateX(-100px) scale(0.9); }
+           }
+         </style>
+       </head>
+       <body class="slide-background">
+         <div class="slide">
+           <!-- Your animated content here -->
+         </div>
+       </body>
+       </html>
     
-    3. VISUAL ELEMENTS (REQUIRED for animated storytelling):
-    - Break content into visualElements array with types:
-      • "bullet": Main content points (animate one by one)
-      • "quote": Important quotes or statements (emphasize)
-      • "stat": Numbers or statistics (highlight dramatically)
-      • "icon": Conceptual elements (use descriptive text like "💡 Key Insight")
-    - Set animationDelay for each element (in milliseconds) to create a flow:
-      • Start at 0ms for first element
-      • Add 500-1500ms between elements based on narration pacing
-      • Synchronize with when the narrator mentions each point
-    - Use emphasis: true for critical points
+    3. CRITICAL CONTENT REQUIREMENTS:
+       - EVERY slide MUST have substantial text content that appears with animations
+       - Create at least 3-5 animated text elements per slide
+       - Use a mix of headlines, bullet points, statistics, and emphasis text
+       - Text should fill the slide space effectively - don't leave large empty areas
+       - Animate text elements sequentially to match narration timing
+       - Use large, readable fonts (h1: 72px, h2: 56px, p: 36px minimum)
     
-    4. TRANSITIONS:
-    - entrance: Choose based on content mood
-      • "fade": For gentle introductions
-      • "slide": For progressive revelations
-      • "zoom": For impactful statements
-      • "typewriter": For quotes or important text
-    - exitDelay: Time before transitioning (usually duration * 1000 - 2000ms)
+    4. ANIMATION PATTERNS TO USE:
+       - Stagger text animations every 600-1000ms
+       - Use different animation types: fade, slide, zoom, typewriter
+       - Add emphasis animations (pulse, glow) to key points
+       - Include subtle background elements but focus on text content
+       - Create visual hierarchy with size and timing
     
-    5. PACING GUIDELINES:
-    - First slide: Strong hook with delayed reveal of key points
-    - Middle slides: Build complexity with cascading animations
-    - Final slide: Memorable conclusion with all points visible
-    
-    6. EXAMPLE VISUAL FLOW:
-    If narration says "There are three key benefits: speed, efficiency, and cost savings"
-    - Element 1: "Three Key Benefits" (0ms)
-    - Element 2: "⚡ Speed" (1000ms - when narrator says "speed")
-    - Element 3: "📈 Efficiency" (2000ms - when narrator says "efficiency")  
-    - Element 4: "💰 Cost Savings" (3000ms - when narrator says "cost savings")
+    5. EXAMPLE SLIDE STRUCTURE:
+       <div class="slide">
+         <h1 class="element element-1 animate-zoom primary-text heading">Main Title</h1>
+         <div class="element element-2 animate-slide">
+           <h2 class="secondary-text">Subtitle or Key Point</h2>
+         </div>
+         <ul style="list-style: none; padding: 0; margin-top: 40px;">
+           <li class="element element-3 animate-fade body-text" style="margin-bottom: 24px; display: flex; align-items: center;">
+             <span style="font-size: 48px; margin-right: 20px;">📊</span>
+             <span>First important point with detail</span>
+           </li>
+           <li class="element element-4 animate-fade body-text" style="margin-bottom: 24px; display: flex; align-items: center;">
+             <span style="font-size: 48px; margin-right: 20px;">💡</span>
+             <span>Second key insight or statistic</span>
+           </li>
+           <li class="element element-5 animate-fade body-text" style="margin-bottom: 24px; display: flex; align-items: center;">
+             <span style="font-size: 48px; margin-right: 20px;">🚀</span>
+             <span>Third compelling point</span>
+           </li>
+         </ul>
+         <div class="element element-6 animate-zoom" style="margin-top: 60px;">
+           <p class="accent-text" style="font-size: 48px; font-weight: bold;">"Key Quote or Call to Action"</p>
+         </div>
+       </div>
     
     Document to convert:
     ${document}
     
-    REMEMBER: The goal is to create slides that feel alive and dynamic, where visual elements appear in perfect synchronization with the narration to enhance understanding and engagement.
+    IMPORTANT FINAL REQUIREMENTS:
+    - Return ONLY valid JSON with complete HTML documents
+    - Each slide MUST have substantial animated text content - no empty or minimal slides
+    - Ensure animations create a dynamic, engaging viewing experience
+    - Text should progressively reveal to match the narration flow
+    - Each HTML must render perfectly at 1920x1080 resolution
+    - Focus on CONTENT over decoration - viewers need to read and understand information
   `
 
   const contents = [
@@ -144,7 +311,7 @@ export async function generateVideoScript(
 
   try {
     const response = await ai.models.generateContentStream({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash-lite',
       config,
       contents,
     })
@@ -164,10 +331,9 @@ export async function generateVideoScript(
     // Ensure all slides have required fields
     const validatedSlides = data.slides.map((slide, index) => ({
       id: slide.id || index + 1,
-      title: slide.title || `Slide ${index + 1}`,
-      content: slide.content || '',
       narration: slide.narration || '',
       duration: Math.max(15, Math.min(30, slide.duration || 20)), // Clamp between 15-30 seconds
+      html: slide.html || `<!DOCTYPE html><html><head><style>body{width:1920px;height:1080px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;font-family:sans-serif;}</style></head><body><h1>Slide ${index + 1}</h1></body></html>`
     }))
 
     return validatedSlides

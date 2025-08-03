@@ -24,7 +24,7 @@ import {
   Palette
 } from 'lucide-react'
 import { SettingsModal } from '@/components/settings-modal'
-import { EnhancedSlidePreviewModal } from '@/components/enhanced-slide-preview-modal'
+import { HtmlSlidePreviewModal } from '@/components/html-slide-preview-modal'
 import {
   Select,
   SelectContent,
@@ -32,6 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { slideThemes, animationTypes } from '@/lib/slide-themes'
 
 interface VideoProject {
@@ -66,6 +68,7 @@ function CreateVideoContent() {
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(0)
   const [projectTheme, setProjectTheme] = useState('cosmic')
   const [projectAnimation, setProjectAnimation] = useState('dynamic')
+  const [generateAudio, setGenerateAudio] = useState(true)
 
   // Load existing project if ID is provided
   useEffect(() => {
@@ -196,7 +199,9 @@ function CreateVideoContent() {
           document: scriptSections[slideIndex].narration, // Use existing narration as base
           sections: 1, // Generate just one slide
           apiKey: useDevKeys ? '' : (localStorage.getItem('gemini_api_key') || ''),
-          steeringPrompt: `Theme: ${projectTheme}, Animation: ${projectAnimation}. Regenerate this slide with enhanced visual elements and timing that matches the theme.`
+          steeringPrompt: `Regenerate this slide with enhanced visual elements and timing that matches the theme.`,
+          themeId: projectTheme,
+          animationType: projectAnimation
         }),
       })
 
@@ -208,12 +213,11 @@ function CreateVideoContent() {
       const scriptData = await response.json()
       const newSlide = scriptData.slides[0]
       
-      // Update the slide with new visual elements while keeping the same audio
+      // Update the slide with new HTML while keeping the same audio
       const updatedSections = [...scriptSections]
       updatedSections[slideIndex] = {
-        ...updatedSections[slideIndex],
-        visualElements: newSlide.visualElements,
-        transitions: newSlide.transitions
+        ...newSlide, // Replace with the new slide structure
+        id: updatedSections[slideIndex].id // Keep the same ID
       }
       
       setScriptSections(updatedSections)
@@ -262,7 +266,9 @@ function CreateVideoContent() {
         body: JSON.stringify({
           document: content,
           sections: 3, // Start with 3 sections
-          apiKey: useDevKeys ? '' : (localStorage.getItem('gemini_api_key') || '')
+          apiKey: useDevKeys ? '' : (localStorage.getItem('gemini_api_key') || ''),
+          themeId: projectTheme,
+          animationType: projectAnimation
         }),
       })
 
@@ -286,13 +292,14 @@ function CreateVideoContent() {
       // Save project after script generation
       await saveProject(true)
 
-      // Step 2: Generate audio for each section sequentially with delays
-      setCurrentStep('Generating audio narrations...')
-      
+      // Step 2: Generate audio for each section (if enabled)
       const audioUrlsArray: string[] = new Array(sections.length)
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
       
-      for (let i = 0; i < sections.length; i++) {
+      if (generateAudio) {
+        setCurrentStep('Generating audio narrations...')
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+        
+        for (let i = 0; i < sections.length; i++) {
         const slide = sections[i]
         
         // Update status to generating
@@ -356,9 +363,17 @@ function CreateVideoContent() {
           throw err
         }
       }
+      } else {
+        // If audio generation is disabled, mark all as completed without audio
+        setCurrentStep('Skipping audio generation...')
+        sections.forEach((_: any, index: number) => {
+          setAudioGenerationStatus(prev => ({ ...prev, [index]: 'completed' }))
+        })
+        setProgress(80)
+      }
       
       setProgress(100)
-      setCurrentStep('Video generation complete!')
+      setCurrentStep('Generation complete!')
       
       // Final save with all data
       await saveProject()
@@ -467,6 +482,26 @@ function CreateVideoContent() {
                   </Select>
                 </div>
               </div>
+
+              {/* Audio Generation Toggle */}
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg mb-4">
+                <div className="flex items-center gap-3">
+                  <Volume2 className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <Label htmlFor="audio-toggle" className="font-medium">
+                      Generate Audio Narration
+                    </Label>
+                    <p className="text-sm text-gray-600">
+                      Disable to save API quota and only preview slide animations
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="audio-toggle"
+                  checked={generateAudio}
+                  onCheckedChange={setGenerateAudio}
+                />
+              </div>
               
               <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-600" />
@@ -524,10 +559,12 @@ function CreateVideoContent() {
                     <h3 className="font-medium">Generated Sections</h3>
                     <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                       <Presentation className="h-3 w-3" />
-                      Click play button to preview slides with audio
+                      {generateAudio ? 
+                        'Click play button to preview slides with audio' : 
+                        'Click play button to preview slide animations (audio disabled)'}
                     </p>
                   </div>
-                  {audioUrls.filter(url => url).length === scriptSections.length && (
+                  {generateAudio && audioUrls.filter(url => url).length === scriptSections.length && (
                     <button
                       onClick={downloadAllAudios}
                       className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700"
@@ -549,7 +586,7 @@ function CreateVideoContent() {
                       }`}>
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="font-medium text-sm flex items-center gap-2">
-                            Section {index + 1}: {section.title}
+                            Section {index + 1}
                             {status === 'generating' && (
                               <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
                             )}
@@ -564,7 +601,7 @@ function CreateVideoContent() {
                                 <RefreshCw className="h-4 w-4" />
                               </button>
                             )}
-                            {audioUrls[index] && status === 'completed' && (
+                            {status === 'completed' && (
                               <>
                                 <button
                                   onClick={() => {
@@ -577,23 +614,27 @@ function CreateVideoContent() {
                                 >
                                   <PlayCircle className="h-5 w-5" />
                                 </button>
-                                <button
-                                  onClick={() => {
-                                    const audio = new Audio(audioUrls[index])
-                                    audio.play()
-                                  }}
-                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
-                                  title="Play audio only"
-                                >
-                                  <Volume2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => downloadAudio(audioUrls[index], index)}
-                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
-                                  title="Download audio"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </button>
+                                {generateAudio && audioUrls[index] && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        const audio = new Audio(audioUrls[index])
+                                        audio.play()
+                                      }}
+                                      className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
+                                      title="Play audio only"
+                                    >
+                                      <Volume2 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => downloadAudio(audioUrls[index], index)}
+                                      className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
+                                      title="Download audio"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
@@ -627,15 +668,13 @@ function CreateVideoContent() {
         onOpenChange={setShowSettings} 
       />
       
-      <EnhancedSlidePreviewModal
+      <HtmlSlidePreviewModal
         open={showSlidePreview}
         onOpenChange={setShowSlidePreview}
         slide={selectedSlide}
         audioUrl={audioUrls[selectedSlideIndex]}
         sectionIndex={selectedSlideIndex}
         totalSections={scriptSections.length}
-        selectedTheme={projectTheme}
-        selectedAnimation={projectAnimation}
       />
     </div>
   )

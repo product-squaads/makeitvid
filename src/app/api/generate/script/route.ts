@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { generateVideoScript } from '@/lib/ai/gemini'
 import { getDevApiKeys, isDevelopment } from '@/lib/env'
+import { getThemeById } from '@/lib/slide-themes'
 
 export const runtime = 'edge' // Use edge runtime for better performance
 
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    let { document, apiKey, steeringPrompt, sections = 10 } = body
+    let { document, apiKey, steeringPrompt, sections = 10, themeId = 'cosmic', animationType = 'dynamic' } = body
     
     // In development, check if user wants to use dev keys
     if (isDevelopment() && (!apiKey || apiKey === '')) {
@@ -52,12 +53,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get theme
+    const theme = getThemeById(themeId)
+
     // Generate script
     const slides = await generateVideoScript(
       document,
       apiKey,
       steeringPrompt,
-      sections
+      sections,
+      theme,
+      animationType
     )
 
     // Calculate total duration
