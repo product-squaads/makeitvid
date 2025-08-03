@@ -132,17 +132,17 @@ export async function generateVideoScript(
 
   const animationCSS = `
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
+      from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
     
     @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-50px); }
+      from { opacity: 0; transform: translateX(-60px); }
       to { opacity: 1; transform: translateX(0); }
     }
     
     @keyframes zoomIn {
-      from { opacity: 0; transform: scale(0.8); }
+      from { opacity: 0; transform: scale(0.7); }
       to { opacity: 1; transform: scale(1); }
     }
     
@@ -151,13 +151,19 @@ export async function generateVideoScript(
       to { width: 100%; }
     }
     
-    .animate-fade { animation: fadeIn 0.8s ease-out forwards; }
-    .animate-slide { animation: slideIn 0.8s ease-out forwards; }
-    .animate-zoom { animation: zoomIn 0.8s ease-out forwards; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .animate-fade { animation: fadeIn 1.5s ease-out forwards; }
+    .animate-slide { animation: slideIn 1.5s ease-out forwards; }
+    .animate-zoom { animation: zoomIn 1.5s ease-out forwards; }
+    .animate-pulse { animation: pulse 2s ease-in-out infinite; }
     .animate-typewriter { 
       overflow: hidden;
       white-space: nowrap;
-      animation: typewriter 2s steps(40, end) forwards;
+      animation: typewriter 3s steps(40, end) forwards;
     }
   `
 
@@ -170,7 +176,7 @@ export async function generateVideoScript(
     1. For each slide, generate:
        - id: Sequential number (1, 2, 3, etc.)
        - narration: Natural speaking script (50-100 words)
-       - duration: Time in seconds (15-30)
+       - duration: Time in seconds (20-25 recommended, animations should span this duration)
        - html: COMPLETE HTML document with all styling and animations
     
     2. HTML STRUCTURE for each slide:
@@ -208,13 +214,15 @@ export async function generateVideoScript(
            
            .element { opacity: 0; }
            .element-1 { animation-delay: 0ms; }
-           .element-2 { animation-delay: 800ms; }
-           .element-3 { animation-delay: 1600ms; }
-           .element-4 { animation-delay: 2400ms; }
-           .element-5 { animation-delay: 3200ms; }
-           .element-6 { animation-delay: 4000ms; }
-           .element-7 { animation-delay: 4800ms; }
-           .element-8 { animation-delay: 5600ms; }
+           .element-2 { animation-delay: 2500ms; }
+           .element-3 { animation-delay: 5000ms; }
+           .element-4 { animation-delay: 7500ms; }
+           .element-5 { animation-delay: 10000ms; }
+           .element-6 { animation-delay: 12500ms; }
+           .element-7 { animation-delay: 15000ms; }
+           .element-8 { animation-delay: 17500ms; }
+           .element-9 { animation-delay: 20000ms; }
+           .element-10 { animation-delay: 22500ms; }
            
            /* Background patterns */
            .floating-shapes {
@@ -255,11 +263,13 @@ export async function generateVideoScript(
        - Use large, readable fonts (h1: 72px, h2: 56px, p: 36px minimum)
     
     4. ANIMATION PATTERNS TO USE:
-       - Stagger text animations every 600-1000ms
+       - IMPORTANT: Distribute animations across the ENTIRE duration of the slide (15-30 seconds)
+       - Stagger text animations every 2500-3000ms to fill the full timeline
+       - Each animation should take 1.5-3 seconds to complete
        - Use different animation types: fade, slide, zoom, typewriter
-       - Add emphasis animations (pulse, glow) to key points
-       - Include subtle background elements but focus on text content
+       - Add emphasis animations (pulse) to key points after they appear
        - Create visual hierarchy with size and timing
+       - Ensure the last element appears around 15-18 seconds into the slide
     
     5. EXAMPLE SLIDE STRUCTURE:
        <div class="slide">
@@ -284,6 +294,12 @@ export async function generateVideoScript(
          <div class="element element-6 animate-zoom" style="margin-top: 60px;">
            <p class="accent-text" style="font-size: 48px; font-weight: bold;">"Key Quote or Call to Action"</p>
          </div>
+         <div class="element element-7 animate-fade" style="margin-top: 30px;">
+           <p class="body-text" style="opacity: 0.8;">Remember: Each element should appear at 2.5-3 second intervals</p>
+         </div>
+         <div class="element element-8 animate-slide" style="margin-top: 20px;">
+           <p class="secondary-text">This ensures animations span the full 20+ seconds</p>
+         </div>
        </div>
     
     Document to convert:
@@ -292,8 +308,10 @@ export async function generateVideoScript(
     IMPORTANT FINAL REQUIREMENTS:
     - Return ONLY valid JSON with complete HTML documents
     - Each slide MUST have substantial animated text content - no empty or minimal slides
-    - Ensure animations create a dynamic, engaging viewing experience
-    - Text should progressively reveal to match the narration flow
+    - CRITICAL: Animations must span the ENTIRE duration (15-30 seconds) of each slide
+    - Space out elements with 2.5-3 second intervals (element-1 at 0s, element-2 at 2.5s, etc.)
+    - The last animated element should appear around 15-18 seconds into the slide
+    - Text should progressively reveal to match the narration flow and timing
     - Each HTML must render perfectly at 1920x1080 resolution
     - Focus on CONTENT over decoration - viewers need to read and understand information
   `
