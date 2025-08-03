@@ -2,12 +2,14 @@
 
 ## 📊 Refactoring Progress Summary
 
-**Overall Progress: 1/4 Critical Files Refactored (25%)**
+**Overall Progress: 2/4 Critical Files Refactored (50%)**
 
-- ✅ **Completed**: 1 file (create/page.tsx - reduced from 695 to 242 lines)
-- 🚨 **Remaining Critical**: 3 files (>300 lines each) - excluding shadcn/ui components
+- ✅ **Completed**: 2 files
+  - create/page.tsx - reduced from 695 to 242 lines (65% reduction)
+  - html-slide-preview-modal.tsx - reduced from 391 to 119 lines (70% reduction)
+- 🚨 **Remaining Critical**: 2 files (>300 lines each) - excluding shadcn/ui components
 - ⚠️ **Remaining Medium**: 1 file (200-300 lines)
-- **Total Lines Reduced**: 453 lines (65% reduction on refactored files)
+- **Total Lines Reduced**: 725 lines (67% average reduction on refactored files)
 
 > **Note**: All files in `src/components/ui/` are shadcn/ui components and are excluded from refactoring.
 
@@ -36,6 +38,28 @@ src/
     └── index.ts (4 lines)
 ```
 
+### 2. `/src/components/html-slide-preview-modal.tsx` ~~(391 lines)~~ → **119 lines** ✅ - **COMPLETED**
+**Refactoring Summary:**
+- Reduced from 391 to 119 lines (70% reduction)
+- Extracted 2 custom hooks for iframe and audio management
+- Created 4 reusable components
+- Clean separation of concerns
+
+**New Structure:**
+```
+src/
+├── hooks/preview-modals/
+│   ├── useIframeScaling.ts (125 lines)
+│   ├── useAudioPlayer.ts (93 lines)
+│   └── index.ts (2 lines)
+└── components/preview-modals/
+    ├── AudioControls.tsx (48 lines)
+    ├── SlideContent.tsx (29 lines)
+    ├── FallbackSlideContent.tsx (56 lines)
+    ├── ModalHeader.tsx (24 lines)
+    └── index.ts (4 lines)
+```
+
 ## 🚨 Remaining Critical Refactoring Needs (Files > 300 lines)
 
 ### 1. `/src/components/enhanced-slide-preview-modal.tsx` (413 lines) - **HIGHEST PRIORITY**
@@ -51,19 +75,7 @@ src/
 - Extract visual element renderers
 - Move background pattern rendering to separate component
 
-### 2. `/src/components/html-slide-preview-modal.tsx` (391 lines) - **HIGH PRIORITY**
-**Issues:**
-- Similar issues to enhanced preview modal
-- Complex iframe manipulation logic
-- Mixed concerns of UI and content transformation
-
-**Recommended Refactoring:**
-- Extract iframe management to custom hook `useIframeScaling`
-- Create separate component for audio controls
-- Move HTML processing logic to utility functions
-- Extract scaling calculations to separate module
-
-### 3. `/src/lib/ai/gemini.ts` (365 lines) - **MEDIUM PRIORITY**
+### 2. `/src/lib/ai/gemini.ts` (365 lines) - **MEDIUM PRIORITY**
 **Issues:**
 - Long AI integration file with embedded prompts
 - Complex HTML generation logic
@@ -76,7 +88,7 @@ src/
 - Move CSS generation to separate module
 - Create animation configuration system
 
-### 4. `/src/app/page.tsx` (340 lines) - **LOW PRIORITY**
+### 3. `/src/app/page.tsx` (340 lines) - **LOW PRIORITY**
 **Issues:**
 - Landing page with all sections in one component
 - Repetitive section structures
@@ -92,7 +104,7 @@ src/
 
 ## 📊 Medium Priority Refactoring (200-300 lines)
 
-### 5. `/src/lib/ai/gemini-tts.ts` (292 lines)
+### 4. `/src/lib/ai/gemini-tts.ts` (292 lines)
 **Issues:**
 - Mixed responsibilities: API integration + audio processing
 - WAV conversion utilities embedded
