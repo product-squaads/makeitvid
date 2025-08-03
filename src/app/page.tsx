@@ -311,11 +311,14 @@ export default async function HomePage() {
                 size="lg"
                 variant="outline"
                 className="bg-transparent border-gray-600 text-white hover:bg-gray-800 hover:border-gray-500 rounded-lg px-8"
+                onClick={() => window.open('https://github.com/product-squaads/makeitvid', '_blank')}
               >
                 <Github className="w-5 h-5 mr-2" />
                 Star on GitHub
               </Button>
-              <Button size="lg" className="bg-white text-gray-900 hover:bg-gray-100 rounded-lg px-8">
+              <Button size="lg" className="bg-white text-gray-900 hover:bg-gray-100 rounded-lg px-8"
+                onClick={() => window.open('https://github.com/product-squaads/makeitvid/blob/main/docs/README.md', '_blank')}
+              >
                 Read Documentation
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
