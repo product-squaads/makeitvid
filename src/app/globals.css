@@ -196,3 +196,13 @@
 .animation-delay-2000 {
   animation-delay: 2000ms;
 }
+
+/* Wave animation for slide backgrounds */
+@keyframes wave {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-200px);
+  }
+}

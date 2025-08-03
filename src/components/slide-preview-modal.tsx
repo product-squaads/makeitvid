@@ -91,7 +91,7 @@ export function SlidePreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden bg-black">
+      <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden bg-black">
         <DialogHeader className="absolute top-4 left-4 right-4 z-10">
           <div className="flex justify-between items-center">
             <DialogTitle className="text-white text-sm opacity-80">
@@ -106,8 +106,10 @@ export function SlidePreviewModal({
           </div>
         </DialogHeader>
 
-        {/* Slide Container */}
-        <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+        {/* 16:9 Aspect Ratio Container */}
+        <div className="relative w-full h-full flex items-center justify-center bg-black">
+          {/* Slide Container with 16:9 Aspect Ratio */}
+          <div className="relative w-full h-full max-w-[calc(90vh*16/9)] max-h-[calc(90vw*9/16)] bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
           <div className="absolute inset-0 bg-black/20" />
           
           {/* Animated Background Pattern */}
@@ -172,6 +174,7 @@ export function SlidePreviewModal({
                 </ul>
               </div>
             )}
+          </div>
           </div>
         </div>
 

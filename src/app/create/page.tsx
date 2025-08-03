@@ -3,7 +3,7 @@
 import { useUser } from '@clerk/nextjs'
 import { redirect, useRouter, useSearchParams } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -19,10 +19,20 @@ import {
   ArrowLeft,
   FileDown,
   PlayCircle,
-  Presentation
+  Presentation,
+  RefreshCw,
+  Palette
 } from 'lucide-react'
 import { SettingsModal } from '@/components/settings-modal'
-import { SlidePreviewModal } from '@/components/slide-preview-modal'
+import { EnhancedSlidePreviewModal } from '@/components/enhanced-slide-preview-modal'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { slideThemes, animationTypes } from '@/lib/slide-themes'
 
 interface VideoProject {
   id: string
@@ -35,7 +45,7 @@ interface VideoProject {
   status: 'draft' | 'generating' | 'completed'
 }
 
-export default function CreateVideoPage() {
+function CreateVideoContent() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -54,6 +64,8 @@ export default function CreateVideoPage() {
   const [showSlidePreview, setShowSlidePreview] = useState(false)
   const [selectedSlide, setSelectedSlide] = useState<any>(null)
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(0)
+  const [projectTheme, setProjectTheme] = useState('cosmic')
+  const [projectAnimation, setProjectAnimation] = useState('dynamic')
 
   // Load existing project if ID is provided
   useEffect(() => {
@@ -87,19 +99,10 @@ export default function CreateVideoPage() {
     }, 30000)
 
     return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, title, content, scriptSections])
 
-  if (!isLoaded) {
-    return <div className="min-h-screen flex items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin" />
-    </div>
-  }
-
-  if (!user) {
-    redirect('/sign-in')
-  }
-
-  const saveProject = async (silent = false) => {
+  const saveProject = useCallback(async (silent = false) => {
     if (!silent) setIsSaving(true)
     
     const project: VideoProject = {
@@ -132,7 +135,7 @@ export default function CreateVideoPage() {
       setIsSaving(false)
       // Show success message or notification
     }
-  }
+  }, [projectId, title, content, scriptSections, audioUrls])
 
   const downloadAudio = async (url: string, index: number) => {
     try {
@@ -164,6 +167,63 @@ export default function CreateVideoPage() {
         setTimeout(() => downloadAudio(url, index), index * 500) // Stagger downloads
       }
     })
+  }
+
+  const regenerateSlide = async (slideIndex: number) => {
+    if (!scriptSections[slideIndex]) return
+    
+    // Check if API keys are set
+    const useDevKeys = localStorage.getItem('use_dev_keys') === 'true'
+    const geminiKey = localStorage.getItem('gemini_api_key')
+    
+    if (!useDevKeys && !geminiKey) {
+      setError('Please configure your Gemini API key in settings first')
+      setShowSettings(true)
+      return
+    }
+
+    setError('')
+    
+    try {
+      // Regenerate just this slide with new theme instructions
+      const response = await fetch('/api/generate/script', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(useDevKeys && { 'x-use-dev-keys': 'true' })
+        },
+        body: JSON.stringify({
+          document: scriptSections[slideIndex].narration, // Use existing narration as base
+          sections: 1, // Generate just one slide
+          apiKey: useDevKeys ? '' : (localStorage.getItem('gemini_api_key') || ''),
+          steeringPrompt: `Theme: ${projectTheme}, Animation: ${projectAnimation}. Regenerate this slide with enhanced visual elements and timing that matches the theme.`
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to regenerate slide')
+      }
+
+      const scriptData = await response.json()
+      const newSlide = scriptData.slides[0]
+      
+      // Update the slide with new visual elements while keeping the same audio
+      const updatedSections = [...scriptSections]
+      updatedSections[slideIndex] = {
+        ...updatedSections[slideIndex],
+        visualElements: newSlide.visualElements,
+        transitions: newSlide.transitions
+      }
+      
+      setScriptSections(updatedSections)
+      
+      // Save updated project
+      await saveProject(true)
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to regenerate slide')
+    }
   }
 
   const generateVideo = async () => {
@@ -368,6 +428,46 @@ export default function CreateVideoPage() {
                 />
               </div>
               
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                    <Palette className="h-4 w-4" />
+                    Theme
+                  </label>
+                  <Select value={projectTheme} onValueChange={setProjectTheme}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {slideThemes.map(theme => (
+                        <SelectItem key={theme.id} value={theme.id}>
+                          {theme.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Animation Style
+                  </label>
+                  <Select value={projectAnimation} onValueChange={setProjectAnimation}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {animationTypes.map(type => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
               <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-600" />
                 Your Content
@@ -455,6 +555,15 @@ export default function CreateVideoPage() {
                             )}
                           </h4>
                           <div className="flex items-center gap-2">
+                            {status === 'completed' && (
+                              <button
+                                onClick={() => regenerateSlide(index)}
+                                className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
+                                title="Regenerate slide with current theme"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </button>
+                            )}
                             {audioUrls[index] && status === 'completed' && (
                               <>
                                 <button
@@ -518,14 +627,28 @@ export default function CreateVideoPage() {
         onOpenChange={setShowSettings} 
       />
       
-      <SlidePreviewModal
+      <EnhancedSlidePreviewModal
         open={showSlidePreview}
         onOpenChange={setShowSlidePreview}
         slide={selectedSlide}
         audioUrl={audioUrls[selectedSlideIndex]}
         sectionIndex={selectedSlideIndex}
         totalSections={scriptSections.length}
+        selectedTheme={projectTheme}
+        selectedAnimation={projectAnimation}
       />
     </div>
+  )
+}
+
+export default function CreateVideoPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <CreateVideoContent />
+    </Suspense>
   )
 }
